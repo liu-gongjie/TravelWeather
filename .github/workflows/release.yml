@@ -2,6 +2,8 @@ name: Publish TravelWeather 0.1
 on:
   push:
     tags: ['v0.1']
+    branches: [main]
+    paths: ['.github/workflows/release.yml']
   workflow_dispatch:
 permissions:
   contents: write
