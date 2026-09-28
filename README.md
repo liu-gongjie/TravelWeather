@@ -1,20 +1,12 @@
 # 旅人天气 · Travel Weather
 
-多城市天气管理：在一个页面查看多个城市的当前天气和未来五日预报，简洁、无广告，方便出行规划。目前仅支持 Android。
+多城市天气管理：在一个页面查看多个城市的当前天气和未来五日预报，简洁、无广告，方便出行规划。目前仅支持 Android，仅有中文版本。
 
-Multi-city weather at a glance, with current conditions and a five-day forecast. Clean, ad-free, and made for trip planning. Android only.
+Multi-city weather at a glance, with current conditions and a five-day forecast. Clean, ad-free, and made for trip planning. Android only. Chinese version only.
 
 **版本：0.1**
 
-**作者：Leo Gorge（liu-gongjie）与 Codex**
-
-## 功能
-
-- 当前区县自动定位；打开页面立即显示已有内容，后台核对位置并更新天气。
-- 每次启动、返回前台及手动刷新，更新当前位置和所有已添加城市的实时天气与五日预报。
-- 支持添加 1–10 个城市、中文和拼音搜索、长按卡片拖动排序。
-- 小雨、中雨、大雨、暴雨分别显示 1、2、3、4 条雨线，支持浅色及深色主题。
-- 设置和上次天气保存在本机；网络失败保留已有内容并提示。
+**作者：Leo Gorge（liu-gongjie）**
 
 ## 文档与下载
 
