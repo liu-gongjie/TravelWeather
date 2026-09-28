@@ -1,0 +1,242 @@
+# 旅人天气 · Travel Weather 设计开发文档
+
+| 项目 | 内容 |
+| --- | --- |
+| 文档对应版本 | 0.1 |
+| 作者 | Leo Gorge（liu-gongjie）与 Codex |
+| 平台 | Android，最低 API 23，目标 API 35 |
+| 包名 | `com.travelweather.app` |
+| APK 版本 | versionName `0.1`，versionCode `15` |
+| 技术栈 | Java WebView + HTML / CSS / 原生 JavaScript ES Modules |
+
+本文只描述当前版本的设计、实现与维护方式，不记录逐次调试过程或开发工具账号配置。
+
+## 1. 产品目标和边界
+
+为出行规划提供同屏多城市天气对比。页面按城市显示当前天气和五日预报，减少切换城市的操作。应用无广告、无账号系统、无自建服务器；所有城市配置与缓存保存在本机。
+
+当前区县独立展示，不计入手动添加城市的 1–10 个名额。定位卡片固定在列表首位，不可拖动或删除；手动城市可删除及排序，至少保留一个，默认北京。
+
+当前不包含小时预报、天气地图、通知推送、后台定时更新、云同步或预警服务。雨量等级是预报展示规则，不是气象预警。
+
+## 2. 界面与交互
+
+### 2.1 主页面
+
+从上到下依次为：主题切换 / 标题 / 刷新按钮、定位天气摘要、定位城市卡片、已添加城市卡片、添加城市入口、两行页脚。
+
+- 标题“旅人天气”采用 18px、500 字重和灰色，避免抢占天气信息层级。
+- 顶部定位摘要优先展示区县名称、天气图标、当前温度和天气文字。
+- 卡片标题为城市名，右侧为当前天气；五列分别显示当地日期、图标、天气描述、最高及最低温度。
+- 卡片不显示更新时间行，也不显示上下排序箭头。
+- 长按卡片约 450ms 启动拖动，提供浮动卡片、占位框和边缘自动滚动；普通滑动用于浏览。排序完成立即持久化。
+- 页脚第一行为“旅人天气 · Travel Weather”（14px、500 字重）；最后一行为“（天气数据：Open-Meteo · 城市数据：和风天气 / GeoNames）”。
+- 采用浅色渐变背景、圆角半透明卡片；深色主题持久化。窄屏仍保持五日并排显示。
+
+### 2.2 添加城市
+
+弹窗文本框支持中文输入法组合输入。组合期间不搜索，输入确认后使用 300ms 防抖。新搜索取消旧请求，并用请求序号避免旧结果覆盖新结果。候选显示名称和省市 / 国家，便于区分同名地点。
+
+选择候选后去重、保存城市、关闭弹窗并获取天气。最多添加 10 个城市。返回键优先关闭弹窗，否则结束 Activity。
+
+### 2.3 图标
+
+应用图标为蓝底白云、太阳与云内三个小定位点（上一个、下两个），前景预留自适应图标裁切空间。`web/icon.svg` 为可编辑源，`favicon.png` 为网页图标；Android 使用传统 PNG 和自适应图标资源。修改时需同步两套资源。
+
+天气图标由 `weather.js` 动态生成内联 SVG。雨线位于云下，小雨 1 条、中雨 2 条、大雨 3 条、暴雨及以上 4 条；雷雨使用闪电，达到暴雨量级时同时显示四条雨线。
+
+## 3. 总体架构
+
+```mermaid
+flowchart TD
+    A[Android MainActivity / Java] --> B[WebView 安全同源页面]
+    B --> C[app.js 状态与交互协调]
+    C --> D[weather.js 数据适配与图标]
+    C --> E[sortable.js 拖动排序]
+    C <--> F[localStorage 城市/主题/位置/天气]
+    D --> G[city-index.js]
+    G --> H[china-cities.js 国内城市快照]
+    D --> I[Open-Meteo 天气 API]
+    D --> J[Open-Meteo Geocoding / GeoNames]
+    C --> K[浏览器 Geolocation]
+    C --> L[同源 reverse-geocode 接口]
+    L --> A
+    A --> M[Android Geocoder]
+```
+
+选择 WebView 是为了使页面、交互和网络适配集中在可独立预览的轻量前端中；Java 外壳只承担资源加载、权限、系统地址解析和生命周期桥接，减少原生界面重复实现。当前不是 Kotlin 原生 UI，也不依赖原平台的运行时与私有天气接口。
+
+### 3.1 文件职责
+
+| 路径 | 职责 |
+| --- | --- |
+| `web/index.html` | 页面结构、弹窗、页脚及模块入口 |
+| `web/app.js` | 城市状态、渲染、刷新协调、位置缓存、搜索交互、主题 |
+| `web/weather.js` | HTTP 请求、天气及在线地名适配、天气描述和 SVG |
+| `web/city-index.js` | 本地地名标准化、候选排序、跨来源去重 |
+| `web/china-cities.js` | 国内地名静态快照 |
+| `web/sortable.js` | 长按、拖动占位、边缘滚动、顺序提交 |
+| `web/original.css` | 从用户提供原应用保留的基础样式资产 |
+| `web/style.css` | 当前版布局、主题、卡片及拖动样式，后加载覆盖基础样式 |
+| `android/src/com/travelweather/app/MainActivity.java` | WebView、权限、地址解析、生命周期及返回行为 |
+| `android/AndroidManifest.xml` | 包名、版本、权限与入口 |
+| `android/res/` | 应用图标资源 |
+| `build_android.py` | 本地 SDK 工具链打包与签名 |
+| `scripts/import_cities.py` | 从上游 CSV 生成索引和来源说明 |
+| `tests/` | 天气规则与浏览器交互回归 |
+| `dist/` | 首次发布 APK 与 SHA256 校验文件 |
+| `.github/workflows/release.yml` | v0.1 标签发布，校验既有 APK 并创建 Release，不包含签名密钥 |
+
+## 4. Android 与网页边界
+
+本地页面以 `https://appassets.androidplatform.net/index.html` 加载。`shouldInterceptRequest` 将该主机的请求映射至 APK 内 `assets/web`，不依赖远程网页托管。JS 与 DOM Storage 开启，文件 / Content URI 访问关闭。Manifest 禁止明文网络并关闭系统备份。
+
+`/reverse-geocode?lat=…&lon=…` 是原生截获的同源接口，并非外部服务器。原生校验经纬度，使用简体中文 Geocoder 在 WebView 请求工作线程查询地址，返回：
+
+```json
+{"name":"区县名称","key":"国家/省级/次级行政区/城市/显示名称"}
+```
+
+名称优先级为 `subLocality → subAdminArea → locality`。尽量只显示区县，不拼接上级市；设备未提供区县时回退到市。`key` 包含上级区域，避免不同城市的同名区县被当作同一位置。失败返回 HTTP 503 和错误 JSON，不返回街道门牌。
+
+定位仅允许本地可信 origin，并请求 Android 粗略 / 精确位置权限。`onResume` 通知页面 `travelweather-resume`；网页另监听 `visibilitychange`，两者由短时间合并机制避免重复刷新。没有后台服务。
+
+## 5. 状态与本地存储
+
+| 存储键 | 内容 |
+| --- | --- |
+| `travelweather-v1-cities` | 已添加城市数组，数组顺序即显示顺序 |
+| `travelweather-v1-cache` | 按 city.id 保存最近成功天气 |
+| `travelweather-last-location` | 最后定位区县、行政 key、坐标 |
+| `travelweather-theme` | `light` / `dark` |
+
+城市模型主要字段为 `{id,name,lat,lon,region}`；定位城市增加 `regionKey`，本地索引对象可附带拼音、省、市和国家。ID 使用 `qw:` 或 `located:` 前缀区分本地索引与定位，在线结果使用原地名 ID。
+
+天气模型为 `{now,today,days,updated}`。`now` 包含温度、天气代码和时间；`days` 最多五条 `{date,code,rainMm,max,min}`。`updated` 仅用于内部记录，界面不展示。
+
+内存中的 `states` 保存各城市的 loading / error / data；`refreshing` 防止刷新重入，`locating` 防止定位并发。读取缓存时对城市基本字段校验，损坏数据回退到默认值。没有用户数据上传、自建统计或云端账号；请求天气、在线地名和系统地址服务仍需要向相关服务传输查询坐标或文本。
+
+## 6. 定位与天气刷新
+
+位置缓存和天气刷新是两个独立决策：**区县不变可以复用位置，但不能因此跳过天气更新。**
+
+```mermaid
+flowchart TD
+    A[启动 / 返回前台 / 手动刷新] --> B[立即显示已有位置与天气]
+    B --> C[并行更新所有已添加城市天气]
+    B --> D[更新缓存位置的天气]
+    B --> E[后台定位并解析区县]
+    E --> F{区县 key 是否改变}
+    F -->|未变| G[保留位置记录，采用本轮新天气]
+    F -->|改变或首次定位| H[请求新位置天气]
+    H --> I[成功后切换并保存新位置]
+    E -->|失败| J[保留已有位置，提供手动重试]
+```
+
+- 每轮请求同时包含实时天气和五日预报，HTTP fetch 使用 `cache: no-store`，不等待跨天。
+- 首次无位置缓存时显示定位中；之后重开先展示已有内容，后台刷新。
+- 同区县不改写保存的位置名称与坐标，新天气按保存坐标获取。
+- 跨区县先取得新天气再切换，防止新地名与旧天气错配，并清理旧定位缓存。
+- 定位失败也继续刷新原保存位置及所有手动城市的天气。已有天气请求失败时保留上次数据并短暂提示；没有缓存时卡片显示错误。
+- 定位超时 12 秒，可接受最长 60 秒系统定位缓存；网络 JSON 请求超时 15 秒。
+- 前台事件间隔小于 1.5 秒合并；刷新进行中忽略重复点击。此版本不持续轮询。
+
+这里的“最新”指本次成功请求时数据服务返回的最新可用结果，并不意味着气象观测在点击瞬间产生。离线时只能展示已有结果。
+
+## 7. 城市搜索和数据源
+
+### 7.1 国内索引
+
+优先检索和风公开 LocationList 的本地快照：3577 条记录，上游版本及校验值见 `CITY-DATA.md`。代码约 309 KiB，APK 压缩后约 78 KiB。它是地名快照，不是实时完整行政区划库，也不是和风在线 API。
+
+名称标准化移除空白、部分分隔符和行政后缀，支持中文、拼音、省市组合。排序为原名精确匹配、标准化名称 / 拼音精确匹配、前缀匹配、组合及包含匹配；同级优先城市级记录，最多返回 30 条。
+
+### 7.2 在线回退
+
+本地没有匹配时请求 `https://geocoding-api.open-meteo.com/v1/search`，中文会组合原名及市 / 县 / 区变体，合并去重后按名称匹配、行政层级和人口排序，最多 20 条。其地名基础来源为 GeoNames。
+
+添加去重首先比较 ID，也比较去后缀名称及经纬度差（各小于 0.15 度）。这是跨来源兼容的启发式，边界地区仍可能出现误判。
+
+### 7.3 天气适配
+
+天气来自 `https://api.open-meteo.com/v1/forecast`。参数包括经纬度、`timezone=auto`、`forecast_days=5`、实时 `temperature_2m,weather_code`，以及每日 `weather_code,temperature_2m_max,temperature_2m_min,rain_sum,showers_sum`。
+
+所有城市来源最终转为经纬度查询天气，不要求城市 ID 与天气服务的 ID 一致。日期按目的地时区处理。中文地名搜索不足不等于该地点没有天气数据。
+
+### 7.4 索引维护和扩展边界
+
+上游区县改名、新增记录不会自动进入已经安装的 APK。更新 CSV 后运行 `python3 scripts/import_cities.py /path/to/China-City-List-latest.csv`，核对生成的版本、记录数、抓取日期和 SHA256，再运行索引测试并发布新版。导入脚本当前抓取日期为固定值，维护时必须同步修改。
+
+未来可在 `searchCities` 内接入在线城市服务，以索引作为失败备用；当前未实现该方案。若迁移天气服务，在 `fetchWeather` 转成现有模型，并同步天气代码、图标、来源说明和凭据管理，不能直接复用不同供应商的天气代码。
+
+## 8. 天气描述与雨量规则
+
+实时描述依据天气代码区分晴、多云、阴、雾、雪、雨及雷雨。每日常规雨量使用 `rain_sum + showers_sum`；任一数据缺失或无效则不把缺失当零，而回退天气代码。
+
+| 每日雨量（mm） | 展示 | 雨线 |
+| --- | --- | --- |
+| 大于 0、小于 10 | 小雨 | 1 |
+| 10 至小于 25 | 中雨 | 2 |
+| 25 至小于 50 | 大雨 | 3 |
+| 50 至小于 100 | 暴雨 | 4 |
+| 100 至小于 250 | 大暴雨 | 4 |
+| 250 及以上 | 特大暴雨 | 4 |
+
+该规则只对常规雨及雷雨代码应用，不把雪、冻雨和晴天改成雨。雷雨日低于 50mm 保留雷雨描述，达到暴雨等级才展示相应等级并保留闪电。
+
+## 9. 构建与运行
+
+项目不使用 Gradle；Python 脚本直接调用 Android SDK 与 JDK 工具。需要 Python 3、JDK、Build Tools 35.0.0 和 SDK Platform android-34。Manifest 的 target API 为 35，构建引用平台为 android-34。
+
+环境变量：`ANDROID_HOME` 指向 SDK，`JAVA_HOME` 指向 JDK；可用 `ANDROID_BUILD_TOOLS` 和 `ANDROID_PLATFORM` 覆盖默认版本。默认路径针对 macOS；其他系统需显式设置上述变量。
+
+```sh
+python3 build_android.py
+```
+
+流水线：复制 web 资源 → aapt 打包 → javac 编译 Java 8 字节码 → d8 生成 DEX → zipalign → apksigner 签名并校验。产物为 `TravelWeather-debug.apk`，中间文件与测试签名在 `build/` 中。
+
+0.1 发布包使用现有本地测试签名；versionCode 递增到 15，versionName 为 0.1。签名密钥不进入源码仓库。其他机器首次构建会产生不同的测试签名，不能直接覆盖安装官方发布的 APK；后续原机版本需保留同一密钥。正式分发前应建立长期受保护的发布签名管理。
+
+本地网页预览：`python3 -m http.server 8765 --directory web`，访问 `http://127.0.0.1:8765`。页面功能可预览，但 `/reverse-geocode` 原生接口在普通静态服务器中不可用。
+
+## 10. 测试与验收
+
+规则测试直接使用 Node.js：
+
+```sh
+node tests/rain.mjs
+node tests/city-search.mjs
+```
+
+浏览器测试需要 Chrome、Playwright 和上述 8765 端口静态服务。设置 `PLAYWRIGHT_PATH` 为 Playwright 模块路径（例如安装后的 `node_modules/playwright` 绝对路径）；未设置时脚本使用开发机的 CLI 内置模块路径。
+
+```sh
+node tests/location.cjs
+node tests/ui.cjs
+node tests/ime.cjs
+node tests/touch-sort.cjs
+```
+
+| 测试 | 覆盖 |
+| --- | --- |
+| rain | 雨量边界、缺失值、代码回退、图标雨线数 |
+| city-search | 3577 条索引的 ID、坐标、名称及后缀检索；典型城市 |
+| location | 初次定位、缓存即时展示、每次重开 / 前台 / 手动刷新、同区复用、跨区切换、解析失败仍更新天气 |
+| ui | 五日网格、增删城市、排序持久化、主题、离线内容、320px 布局、页面异常 |
+| ime | 中文组合输入完成后搜索、页脚内容 |
+| touch-sort | 普通滚动、长按拖动、边缘滚动及排序持久化 |
+
+浏览器测试使用模拟网络及位置数据，不能替代真机权限、系统 Geocoder 和真实网络验证。发布验收还应检查真机冷启动、重开、刷新、断网提示、区县显示、中文输入、拖动及桌面图标裁切。索引全量测试证明可检索性，不证明所有记录符合最新行政区划。
+
+## 11. 安全、来源与已知限制
+
+- 不提交签名文件、SSH 密钥、认证令牌、设备日志、个人位置缓存和原 APK。
+- 当前请求不使用私有天气令牌；联网服务可用性、更新频率及使用条款由供应商决定。
+- 位置名称依赖设备 Geocoder，部分设备可能不可用或只返回市级名称。
+- 同区县复用缓存坐标，区县内较远移动仍查询原点天气，这是当前需求的取舍。
+- `web/original.css` 保留自用户提供应用的基础视觉资产，其他主要交互及 Android 外壳在当前工程实现；本仓库不是原平台完整源码的恢复。
+- 国内索引来源：[QWeather LocationList](https://github.com/qwd/LocationList)；天气来源：[Open-Meteo](https://open-meteo.com/)；补充地名来源：[GeoNames](https://www.geonames.org/)。第三方来源和条款独立于项目作者署名。
+- 目前未指定项目统一许可证，也未接入和风在线服务。
+
+维护时优先保持位置与天气刷新分离、天气供应商适配集中、存储键向后兼容。修改数据结构需要显式迁移，修改供应商必须同步测试及来源文案。

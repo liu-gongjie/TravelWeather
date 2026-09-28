@@ -1,0 +1,25 @@
+const {chromium}=require(process.env.PLAYWRIGHT_PATH||'/opt/homebrew/lib/node_modules/@playwright/cli/node_modules/playwright');
+const assert=require('node:assert/strict');
+const path=require('node:path');
+(async()=>{
+const browser=await chromium.launch({channel:'chrome',headless:true});
+const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+let offline=false;
+const fixture={current:{time:'2026-09-27T12:00',temperature_2m:24,weather_code:2},daily:{time:['2026-09-27','2026-09-28','2026-09-29','2026-09-30','2026-10-01'],weather_code:[2,3,61,0,95],temperature_2m_max:[27,25,24,28,26],temperature_2m_min:[18,17,16,19,18]}};
+await page.route('https://api.open-meteo.com/**',route=>offline?route.abort():route.fulfill({json:fixture}));
+await page.route('https://geocoding-api.open-meteo.com/**',route=>route.fulfill({json:{results:[{id:1796236,name:'上海',latitude:31.23,longitude:121.47,admin1:'上海',country:'中国'}]}}));
+await page.goto('http://127.0.0.1:8765');
+await page.locator('.days').waitFor();assert.equal(await page.locator('.day').count(),5);
+await page.getByRole('button',{name:'删除北京'}).click();assert.equal(await page.locator('.card').count(),1);assert.match(await page.locator('#toast').textContent(),/至少/);
+await page.locator('#add').click();await page.locator('#search').fill('上海');await page.locator('.result').first().click();await page.locator('.card').nth(1).locator('.days').waitFor();assert.equal(await page.locator('.day').count(),10);
+const from=await page.locator('.card').nth(1).boundingBox();const to=await page.locator('.card').first().boundingBox();await page.mouse.move(from.x+150,from.y+60);await page.mouse.down();await page.waitForTimeout(500);await page.mouse.move(to.x+150,to.y+30,{steps:8});await page.mouse.up();assert.equal(await page.locator('.city-title h2').first().textContent(),'上海');
+await page.reload();await page.locator('.days').first().waitFor();assert.equal(await page.locator('.city-title h2').first().textContent(),'上海');
+await page.screenshot({path:path.resolve(__dirname,'../preview-light.png'),fullPage:true});
+await page.locator('#theme').click();assert.equal(await page.locator('html').getAttribute('class'),'dark');
+await page.screenshot({path:path.resolve(__dirname,'../preview-dark.png'),fullPage:true});
+offline=true;await page.locator('#refresh').click();await page.waitForFunction(()=>!document.querySelector('#refresh').disabled);assert.equal(await page.locator('.cached').count(),0);assert.match(await page.locator('#toast').textContent(),/更新失败/);assert.equal(await page.locator('.day').count(),10);
+await page.getByRole('button',{name:'删除上海'}).click();assert.equal(await page.locator('.card').count(),1);
+await page.setViewportSize({width:320,height:700});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+assert.deepEqual(errors,[]);console.log('PASS: five-day grid, minimum city limit, search/add, reorder persistence, theme, offline cache, removal, 320px layout, no page errors. Screenshots use test fixtures.');await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});
