@@ -8,14 +8,14 @@ Multi-city weather at a glance, with current conditions and a five-day forecast.
 
 **作者：Leo Gorge（liu-gongjie）**
 
-## 文档与下载
+## 下载与文档
 
+- [0.1 发布说明](docs/RELEASE-0.1.md)
+- [APK 下载](https://github.com/liu-gongjie/TravelWeather/releases/tag/v0.1) https://github.com/liu-gongjie/TravelWeather/releases/tag/v0.1
 - [设计开发文档](docs/DESIGN.md)：架构、功能、数据结构、流程、构建、测试与维护。
 - [城市索引来源](CITY-DATA.md)
 - [作者](AUTHORS.md)
-- [0.1 发布说明](docs/RELEASE-0.1.md)
-- [APK 下载](https://github.com/liu-gongjie/TravelWeather/releases/tag/v0.1)
-
+  
 ## 开发入口
 
 页面使用原生 JavaScript、HTML、CSS；Android 外壳使用 Java WebView。没有 Kotlin、Vue 或 React 运行时依赖，也没有自建后端。
