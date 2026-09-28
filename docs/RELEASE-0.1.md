@@ -1,6 +1,6 @@
 # 旅人天气 · Travel Weather 0.1
 
-首个公开 Release，作者：Leo Gorge（liu-gongjie）与 Codex。
+首个公开 Release，作者：Leo Gorge（liu-gongjie）；主要贡献者：Codex。
 
 - 同屏显示多个城市的实时天气与五日预报。
 - 区县自动定位与位置缓存；每次启动、返回前台及手动刷新更新全部城市天气。

@@ -34,4 +34,10 @@ python3 build_android.py
 
 天气：Open-Meteo。国内地名：和风天气公开城市列表的本地快照。补充地名搜索：Open-Meteo Geocoding（GeoNames）。尚未接入和风在线城市或天气 API。
 
-第三方数据和原有样式资产的来源见设计文档。仓库尚未指定统一开源许可证；公开可读不代表第三方数据许可被重新授予。
+第三方数据和原有样式资产的来源见设计文档。
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE)，版权归 Leo Gorge（liu-gongjie）所有。作者与主要贡献者见 [AUTHORS.md](AUTHORS.md)。
+
+第三方数据、服务及资产仍遵循各自的许可和使用条款，不因本项目采用 MIT 而改变。

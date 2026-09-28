@@ -3,7 +3,8 @@
 | 项目 | 内容 |
 | --- | --- |
 | 文档对应版本 | 0.1 |
-| 作者 | Leo Gorge（liu-gongjie）与 Codex |
+| 作者 | Leo Gorge（liu-gongjie） |
+| 主要贡献者 | Codex（AI 协作开发） |
 | 平台 | Android，最低 API 23，目标 API 35 |
 | 包名 | `com.travelweather.app` |
 | APK 版本 | versionName `0.1`，versionCode `15` |
@@ -237,6 +238,6 @@ node tests/touch-sort.cjs
 - 同区县复用缓存坐标，区县内较远移动仍查询原点天气，这是当前需求的取舍。
 - `web/original.css` 保留自用户提供应用的基础视觉资产，其他主要交互及 Android 外壳在当前工程实现；本仓库不是原平台完整源码的恢复。
 - 国内索引来源：[QWeather LocationList](https://github.com/qwd/LocationList)；天气来源：[Open-Meteo](https://open-meteo.com/)；补充地名来源：[GeoNames](https://www.geonames.org/)。第三方来源和条款独立于项目作者署名。
-- 目前未指定项目统一许可证，也未接入和风在线服务。
+- 项目代码与文档采用 [MIT License](../LICENSE)，版权署名为 Leo Gorge（liu-gongjie）；第三方数据、服务及资产仍遵循各自条款。当前未接入和风在线服务。
 
 维护时优先保持位置与天气刷新分离、天气供应商适配集中、存储键向后兼容。修改数据结构需要显式迁移，修改供应商必须同步测试及来源文案。
