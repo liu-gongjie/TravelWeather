@@ -18,6 +18,11 @@ amap_key = os.environ.get('AMAP_WEB_KEY', '').strip()
 if not amap_key and key_path.is_file(): amap_key = key_path.read_text().strip()
 if amap_key and (len(amap_key) != 32 or any(c not in '0123456789abcdefABCDEF' for c in amap_key)):
  raise SystemExit('Invalid AMAP Web service key format')
+# Shared Web service keys cannot be kept secret inside an APK.
+# Embed only for an explicitly requested private test build.
+if amap_key and os.environ.get('ALLOW_EMBEDDED_AMAP_KEY') != '1':
+ print('Local AMap key detected but NOT embedded; use a server proxy for distribution.')
+ amap_key = ''
 (build/'assets/amap-key.txt').write_text(amap_key)
 print('AMap fallback: ' + ('configured' if amap_key else 'disabled (no local key)'))
 def run(*args):subprocess.run([str(a) for a in args],check=True,cwd=root,env=env)
