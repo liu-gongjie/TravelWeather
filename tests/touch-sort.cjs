@@ -5,7 +5,7 @@ const browser=await chromium.launch({channel:'chrome',headless:true});
 try {
 const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
 await page.route('https://api.open-meteo.com/**',r=>r.fulfill({json:{current:{time:'2026-09-27T12:00',temperature_2m:24,weather_code:61},daily:{time:['2026-09-27'],weather_code:[61],temperature_2m_max:[27],temperature_2m_min:[18]}}}));
-await page.goto('http://127.0.0.1:8765');
+await page.goto((process.env.TEST_BASE_URL||'http://127.0.0.1:8765'));
 await page.evaluate(()=>{localStorage.setItem('travelweather-v1-cities',JSON.stringify(['北京','上海','深圳','长沙','广州','杭州'].map((name,i)=>({id:String(i),name,lat:30,lon:120}))));});
 await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.days').length===6);
 assert.equal(await page.locator('[data-action="up"],[data-action="down"]').count(),0);

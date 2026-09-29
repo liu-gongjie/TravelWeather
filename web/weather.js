@@ -1,8 +1,8 @@
 import {searchLocalCities} from './city-index.js';
 // Independent provider adapter. No Tencent platform token or signing secret required.
-export async function getJSON(url, signal) {
+export async function getJSON(url, signal, timeoutMs = 15000) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
   if (signal?.aborted) controller.abort();

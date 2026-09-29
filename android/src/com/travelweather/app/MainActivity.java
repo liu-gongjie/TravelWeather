@@ -11,6 +11,7 @@ import java.io.IOException;
 /** Minimal, source-owned Android shell; serves bundled assets on a secure origin. */
 public class MainActivity extends Activity {
     private WebView web;
+    private volatile NativeLocation nativeLocation;
     private GeolocationPermissions.Callback locationCallback;
     private String locationOrigin;
     private static final String HOST = "appassets.androidplatform.net";
@@ -36,6 +37,7 @@ public class MainActivity extends Activity {
                 Uri uri=request.getUrl();
                 if (!HOST.equals(uri.getHost()) || !"https".equals(uri.getScheme())) return null;
                 String path=uri.getPath();
+                if("/location".equals(path)) return locateNative(uri);
                 if("/reverse-geocode".equals(path)) return reverseGeocode(uri);
                 if(path==null || path.contains("..")) return new WebResourceResponse("text/plain","UTF-8",null);
                 if(path.equals("/"))path="/index.html";
@@ -60,6 +62,18 @@ public class MainActivity extends Activity {
         });
         web.loadUrl("https://"+HOST+"/index.html");
     }
+    private synchronized WebResourceResponse locateNative(Uri uri) {
+        final NativeLocation request = new NativeLocation(this, "1".equals(uri.getQueryParameter("fresh")));
+        nativeLocation = request;
+        runOnUiThread(new Runnable() { @Override public void run() {
+            if (isFinishing() || isDestroyed()) { request.fail("cancelled", "定位已取消"); return; }
+            if (request.hasPermission()) request.start();
+            else requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 101);
+        }});
+        String result = request.await();
+        if (nativeLocation == request) nativeLocation = null;
+        return jsonResponse(result, 200);
+    }
     // WebView invokes this on its request worker, never on the UI thread.
     private WebResourceResponse reverseGeocode(Uri uri) {
         try {
@@ -68,7 +82,17 @@ public class MainActivity extends Activity {
             if(Double.isNaN(lat)||Double.isNaN(lon)||Math.abs(lat)>90||Math.abs(lon)>180)throw new IllegalArgumentException();
             if(!android.location.Geocoder.isPresent())throw new IOException("Geocoder unavailable");
             android.location.Geocoder coder=new android.location.Geocoder(this,java.util.Locale.SIMPLIFIED_CHINESE);
-            java.util.List<android.location.Address> addresses=coder.getFromLocation(lat,lon,1);
+            java.util.List<android.location.Address> addresses;
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+                java.util.concurrent.atomic.AtomicReference<java.util.List<android.location.Address>> result = new java.util.concurrent.atomic.AtomicReference<>();
+                coder.getFromLocation(lat, lon, 1, new android.location.Geocoder.GeocodeListener() {
+                    @Override public void onGeocode(java.util.List<android.location.Address> list) { result.set(list); done.countDown(); }
+                    @Override public void onError(String message) { done.countDown(); }
+                });
+                if (!done.await(8, java.util.concurrent.TimeUnit.SECONDS)) throw new IOException("Geocoder timeout");
+                addresses = result.get();
+            } else addresses=coder.getFromLocation(lat,lon,1);
             if(addresses==null||addresses.isEmpty())throw new IOException("No address");
             android.location.Address address=addresses.get(0);
             String city=address.getLocality(), district=address.getSubLocality();
@@ -87,6 +111,7 @@ public class MainActivity extends Activity {
     }
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
         super.onRequestPermissionsResult(request,permissions,results);
+        if(request==101 && nativeLocation!=null) nativeLocation.start();
         if(request==100 && locationCallback!=null){locationCallback.invoke(locationOrigin,checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED,false);locationCallback=null;}
     }
     @Override public void onBackPressed(){web.evaluateJavascript("(function(){var d=document.querySelector('dialog[open]');if(d){d.close();return true;}return false;})()",new ValueCallback<String>() { @Override public void onReceiveValue(String result){ if(!"true".equals(result))finish(); } });}
@@ -94,5 +119,12 @@ public class MainActivity extends Activity {
         super.onResume();
         if(web!=null)web.evaluateJavascript("window.dispatchEvent(new Event('travelweather-resume'));",null);
     }
-    @Override protected void onDestroy(){web.destroy();super.onDestroy();}
+    @Override protected void onStop(){
+        super.onStop();
+        if(nativeLocation!=null) nativeLocation.fail("cancelled", "返回应用后重试定位");
+    }
+    @Override protected void onDestroy(){
+        if(nativeLocation!=null) nativeLocation.fail("cancelled", "定位已取消");
+        web.destroy();super.onDestroy();
+    }
 }

@@ -2,12 +2,12 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档对应版本 | 0.1 |
+| 文档对应版本 | 0.11 |
 | 作者 | Leo Gorge（liu-gongjie） |
 | 主要贡献者 | Codex（AI 协作开发） |
 | 平台 | Android，最低 API 23，目标 API 35 |
 | 包名 | `com.travelweather.app` |
-| APK 版本 | versionName `0.1`，versionCode `15` |
+| APK 版本 | versionName `0.11`，versionCode `16` |
 | 技术栈 | Java WebView + HTML / CSS / 原生 JavaScript ES Modules |
 
 本文只描述当前版本的设计、实现与维护方式，不记录逐次调试过程或开发工具账号配置。
@@ -24,7 +24,7 @@
 
 ### 2.1 主页面
 
-从上到下依次为：主题切换 / 标题 / 刷新按钮、定位天气摘要、定位城市卡片、已添加城市卡片、添加城市入口、两行页脚。
+从上到下依次为：主题切换 / 标题 / 刷新按钮、定位天气摘要、定位城市卡片、已添加城市卡片、添加城市入口、最新更新时间、两行页脚。
 
 - 标题“旅人天气”采用 18px、500 字重和灰色，避免抢占天气信息层级。
 - 顶部定位摘要优先展示区县名称、天气图标、当前温度和天气文字。
@@ -59,7 +59,10 @@ flowchart TD
     G --> H[china-cities.js 国内城市快照]
     D --> I[Open-Meteo 天气 API]
     D --> J[Open-Meteo Geocoding / GeoNames]
-    C --> K[浏览器 Geolocation]
+    C --> K[location.js 定位适配]
+    K --> N[同源 location 接口 / NativeLocation]
+    N --> O[系统融合 / 网络 / GNSS]
+    K --> P[浏览器预览 Geolocation 回退]
     C --> L[同源 reverse-geocode 接口]
     L --> A
     A --> M[Android Geocoder]
@@ -74,12 +77,14 @@ flowchart TD
 | `web/index.html` | 页面结构、弹窗、页脚及模块入口 |
 | `web/app.js` | 城市状态、渲染、刷新协调、位置缓存、搜索交互、主题 |
 | `web/weather.js` | HTTP 请求、天气及在线地名适配、天气描述和 SVG |
+| `web/location.js` | Android 原生定位接口及浏览器预览的高精度重试 |
 | `web/city-index.js` | 本地地名标准化、候选排序、跨来源去重 |
 | `web/china-cities.js` | 国内地名静态快照 |
 | `web/sortable.js` | 长按、拖动占位、边缘滚动、顺序提交 |
 | `web/original.css` | 从用户提供原应用保留的基础样式资产 |
 | `web/style.css` | 当前版布局、主题、卡片及拖动样式，后加载覆盖基础样式 |
 | `android/src/com/travelweather/app/MainActivity.java` | WebView、权限、地址解析、生命周期及返回行为 |
+| `android/src/com/travelweather/app/NativeLocation.java` | 前台多提供者定位、新鲜度与精度筛选、超时、资源清理 |
 | `android/AndroidManifest.xml` | 包名、版本、权限与入口 |
 | `android/res/` | 应用图标资源 |
 | `build_android.py` | 本地 SDK 工具链打包与签名 |
@@ -113,7 +118,7 @@ flowchart TD
 
 城市模型主要字段为 `{id,name,lat,lon,region}`；定位城市增加 `regionKey`，本地索引对象可附带拼音、省、市和国家。ID 使用 `qw:` 或 `located:` 前缀区分本地索引与定位，在线结果使用原地名 ID。
 
-天气模型为 `{now,today,days,updated}`。`now` 包含温度、天气代码和时间；`days` 最多五条 `{date,code,rainMm,max,min}`。`updated` 仅用于内部记录，界面不展示。
+天气模型为 `{now,today,days,updated}`。`now` 包含温度、天气代码和时间；`days` 最多五条 `{date,code,rainMm,max,min}`。`updated` 为天气获取成功时的本机时间。“添加城市”下方显示当前展示城市中最近一次成功获取的时间；不是数据服务的观测发布时间，不代表所有城市都同时成功。部分城市失败时追加提示，全部失败不推进时间，无数据时显示“暂无”。
 
 内存中的 `states` 保存各城市的 loading / error / data；`refreshing` 防止刷新重入，`locating` 防止定位并发。读取缓存时对城市基本字段校验，损坏数据回退到默认值。没有用户数据上传、自建统计或云端账号；请求天气、在线地名和系统地址服务仍需要向相关服务传输查询坐标或文本。
 
@@ -139,7 +144,11 @@ flowchart TD
 - 同区县不改写保存的位置名称与坐标，新天气按保存坐标获取。
 - 跨区县先取得新天气再切换，防止新地名与旧天气错配，并清理旧定位缓存。
 - 定位失败也继续刷新原保存位置及所有手动城市的天气。已有天气请求失败时保留上次数据并短暂提示；没有缓存时卡片显示错误。
-- 定位超时 12 秒，可接受最长 60 秒系统定位缓存；网络 JSON 请求超时 15 秒。
+- Android 原生同时请求设备可用的融合、网络和 GPS 提供者；卫星系统（含 GPS / 北斗）由设备 GNSS 自动选择，不修改硬件灵敏度。
+- 自动定位可直接采用 60 秒内、精度不差于 1km 的系统缓存；手动重试主动等待新位置。主动定位最多 25 秒，超时仅回退到 5 分钟内且精度不差于 10km 的候选，并提示大致位置。权限等待与原生请求总预算 55 秒，网页等待 60 秒。
+- Android 13+ 使用异步 Geocoder，名称解析最多等待 8 秒。普通网络 JSON 请求超时 15 秒。普通浏览器预览先低精度 12 秒，失败（非权限拒绝）再高精度 25 秒。
+- 区县服务失败但坐标可用时，仍请求天气并显示“位置名称暂不可用”；仅当坐标距缓存点小于 1km 时保留已知名称，同时提示名称解析未更新。无法获取位置和天气时文案为“无法获取当前位置和天气”。
+- 原生请求在成功、超时、退到后台、Activity 销毁时移除监听；仅在前台临时获取，不增加后台定位权限或电池白名单。
 - 前台事件间隔小于 1.5 秒合并；刷新进行中忽略重复点击。此版本不持续轮询。
 
 这里的“最新”指本次成功请求时数据服务返回的最新可用结果，并不意味着气象观测在点击瞬间产生。离线时只能展示已有结果。
@@ -197,7 +206,7 @@ python3 build_android.py
 
 流水线：复制 web 资源 → aapt 打包 → javac 编译 Java 8 字节码 → d8 生成 DEX → zipalign → apksigner 签名并校验。产物为 `TravelWeather-debug.apk`，中间文件与测试签名在 `build/` 中。
 
-0.1 发布包使用现有本地测试签名；versionCode 递增到 15，versionName 为 0.1。签名密钥不进入源码仓库。其他机器首次构建会产生不同的测试签名，不能直接覆盖安装官方发布的 APK；后续原机版本需保留同一密钥。正式分发前应建立长期受保护的发布签名管理。
+0.11 测试包沿用 0.1 的本地测试签名；versionCode 递增到 16，versionName 为 0.11。签名密钥不进入源码仓库。其他机器首次构建会产生不同的测试签名，不能直接覆盖安装官方发布的 APK；后续原机版本需保留同一密钥。正式分发前应建立长期受保护的发布签名管理。
 
 本地网页预览：`python3 -m http.server 8765 --directory web`，访问 `http://127.0.0.1:8765`。页面功能可预览，但 `/reverse-geocode` 原生接口在普通静态服务器中不可用。
 
@@ -214,6 +223,7 @@ node tests/city-search.mjs
 
 ```sh
 node tests/location.cjs
+node tests/location-native.cjs
 node tests/ui.cjs
 node tests/ime.cjs
 node tests/touch-sort.cjs
@@ -223,6 +233,7 @@ node tests/touch-sort.cjs
 | --- | --- |
 | rain | 雨量边界、缺失值、代码回退、图标雨线数 |
 | city-search | 3577 条索引的 ID、坐标、名称及后缀检索；典型城市 |
+| location-native | 原生接口错误、强制重新定位、区县解析失败保留天气、大致位置提示、更新时间成功/失败与重开、浏览器高精度回退 |
 | location | 初次定位、缓存即时展示、每次重开 / 前台 / 手动刷新、同区复用、跨区切换、解析失败仍更新天气 |
 | ui | 五日网格、增删城市、排序持久化、主题、离线内容、320px 布局、页面异常 |
 | ime | 中文组合输入完成后搜索、页脚内容 |
@@ -241,3 +252,7 @@ node tests/touch-sort.cjs
 - 项目代码与文档采用 [MIT License](../LICENSE)，版权署名为 Leo Gorge（liu-gongjie）；第三方数据、服务及资产仍遵循各自条款。当前未接入和风在线服务。
 
 维护时优先保持位置与天气刷新分离、天气供应商适配集中、存储键向后兼容。修改数据结构需要显式迁移，修改供应商必须同步测试及来源文案。
+
+## 12. 0.11 版本管理
+
+0.1 的 `v0.1` 标签、Release、`dist/TravelWeather-0.1.apk` 保持不变。开发前将用户编辑的 Release 说明纳入提交，建立 `backup/pre-0.11-20260929` 标签并导出完整 Git bundle。0.11 在 `develop/0.11` 分支开发，不改写已发布历史。测试包独立提供，三星 S26+ 省电模式实机验收后再决定正式发布。

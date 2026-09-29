@@ -9,7 +9,7 @@ let offline=false;
 const fixture={current:{time:'2026-09-27T12:00',temperature_2m:24,weather_code:2},daily:{time:['2026-09-27','2026-09-28','2026-09-29','2026-09-30','2026-10-01'],weather_code:[2,3,61,0,95],temperature_2m_max:[27,25,24,28,26],temperature_2m_min:[18,17,16,19,18]}};
 await page.route('https://api.open-meteo.com/**',route=>offline?route.abort():route.fulfill({json:fixture}));
 await page.route('https://geocoding-api.open-meteo.com/**',route=>route.fulfill({json:{results:[{id:1796236,name:'上海',latitude:31.23,longitude:121.47,admin1:'上海',country:'中国'}]}}));
-await page.goto('http://127.0.0.1:8765');
+await page.goto((process.env.TEST_BASE_URL||'http://127.0.0.1:8765'));
 await page.locator('.days').waitFor();assert.equal(await page.locator('.day').count(),5);
 await page.getByRole('button',{name:'删除北京'}).click();assert.equal(await page.locator('.card').count(),1);assert.match(await page.locator('#toast').textContent(),/至少/);
 await page.locator('#add').click();await page.locator('#search').fill('上海');await page.locator('.result').first().click();await page.locator('.card').nth(1).locator('.days').waitFor();assert.equal(await page.locator('.day').count(),10);
