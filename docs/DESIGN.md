@@ -273,6 +273,6 @@ node tests/touch-sort.cjs
 
 申请高德“Web 服务”类型 Key 后，可将其单独保存在源码目录旁的 `amap-key.txt`，或通过 `AMAP_KEY_FILE` 指定文件路径，也可设置 `AMAP_WEB_KEY` 环境变量。默认执行 `python3 build_android.py` 不会把本地 Key 放入 APK，仍只启用系统解析。当前 0.11 APK 按项目选择使用内置 Key 方案，以 `ALLOW_EMBEDDED_AMAP_KEY=1 python3 build_android.py` 构建；暂不采用服务器代理。该开关需每次显式设置，默认构建仍不含 Key。构建每次覆盖密钥资产，移除配置后不会沿用旧 Key。
 
-Key 仅注入原生读取的 APK asset，不进入网页资源、Git、源码归档和日志；APK 内的 Key 仍可被提取，并非服务器级保密。分发前应在高德控制台管理额度和密钥使用范围。一次备用解析包含坐标转换和逆地理编码两次服务调用。系统成功不调用高德；高德失败不重试循环，沿用现有前端失败提示及新坐标天气逻辑。当前 Key 的坐标转换与逆地理编码接口已通过真实网络验证；三星 S26+ 已安装含 Key 的包并通过启动和手动刷新检查。本轮可能走 3km 位置复用，未确认真机实际触发备用链路。
+Key 仅注入原生读取的 APK asset，不进入网页资源、Git、源码归档和日志；APK 内的 Key 仍可被提取，并非服务器级保密。分发前应在高德控制台管理额度和密钥使用范围。一次备用解析包含坐标转换和逆地理编码两次服务调用。系统成功不调用高德；高德失败不重试循环，沿用现有前端失败提示及新坐标天气逻辑。当前 Key 的坐标转换与逆地理编码接口已通过真实网络验证；Android 真机 已安装含 Key 的包并通过启动和手动刷新检查。本轮可能走 3km 位置复用，未确认真机实际触发备用链路。
 
 原生切换策略测试：使用本地 JDK 编译 `FallbackResolver.java` 与 `tests/FallbackResolverTest.java`，运行 `com.travelweather.app.FallbackResolverTest`。覆盖系统成功不调用备用、异常、空值、超时切换及两者均失败。
