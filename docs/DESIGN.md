@@ -66,10 +66,10 @@ flowchart TD
     C --> L[同源 reverse-geocode 接口]
     L --> A
     A --> M[Android Geocoder]
-    M -->|失败且已配置 Key| G[高德坐标转换与逆地理编码]
+    M -->|失败且已配置 Key| Q[高德坐标转换与逆地理编码]
 ```
 
-选择 WebView 是为了使页面、交互和网络适配集中在可独立预览的轻量前端中；Java 外壳只承担资源加载、权限、系统地址解析和生命周期桥接，减少原生界面重复实现。当前不是 Kotlin 原生 UI，也不依赖原平台的运行时与私有天气接口。
+选择 WebView 是为了使页面、交互和网络适配集中在可独立预览的轻量前端中；Java 外壳承担资源加载、权限、原生定位、系统及备用地址解析和生命周期桥接，减少原生界面重复实现。当前不是 Kotlin 原生 UI，也不依赖原平台的运行时与私有天气接口。
 
 ### 3.1 文件职责
 
@@ -86,6 +86,8 @@ flowchart TD
 | `web/style.css` | 当前版布局、主题、卡片及拖动样式，后加载覆盖基础样式 |
 | `android/src/com/travelweather/app/MainActivity.java` | WebView、权限、地址解析、生命周期及返回行为 |
 | `android/src/com/travelweather/app/NativeLocation.java` | 前台多提供者定位、新鲜度与精度筛选、超时、资源清理 |
+| `android/src/com/travelweather/app/ReverseGeocoder.java` | 系统优先、高德备用解析；坐标转换、响应校验、区县提取 |
+| `android/src/com/travelweather/app/FallbackResolver.java` | 两组有界线程与分阶段超时，隔离卡住的系统服务 |
 | `android/AndroidManifest.xml` | 包名、版本、权限与入口 |
 | `android/res/` | 应用图标资源 |
 | `build_android.py` | 本地 SDK 工具链打包与签名 |
@@ -104,7 +106,7 @@ flowchart TD
 {"name":"区县名称","key":"国家/省级/次级行政区/城市/显示名称"}
 ```
 
-名称优先级为 `subLocality → subAdminArea → locality`。尽量只显示区县，不拼接上级市；设备未提供区县时回退到市。`key` 包含上级区域，避免不同城市的同名区县被当作同一位置。失败返回 HTTP 503 和错误 JSON，不返回街道门牌。
+系统名称优先级为 `subLocality → subAdminArea → locality`；高德优先 district、其次 city，直辖市必要时使用 province。高德 `key` 使用 `amap/行政区代码`，缺少代码时使用省市区县组合；不同来源的 key 不强行视为相同。尽量只显示区县，不拼接上级市；设备未提供区县时回退到市。`key` 包含上级区域，避免不同城市的同名区县被当作同一位置。失败返回 HTTP 503 和错误 JSON，不返回街道门牌。
 
 定位仅允许本地可信 origin，并请求 Android 粗略 / 精确位置权限。`onResume` 通知页面 `travelweather-resume`；网页另监听 `visibilitychange`，两者由短时间合并机制避免重复刷新。没有后台服务。
 
@@ -132,12 +134,16 @@ flowchart TD
     A[启动 / 返回前台 / 手动刷新] --> B[立即显示已有位置与天气]
     B --> C[并行更新所有已添加城市天气]
     B --> D[更新缓存位置的天气]
-    B --> E[后台定位并解析区县]
-    E --> F{区县 key 是否改变}
+    B --> E[前台期间异步获取坐标]
+    E --> R{距保存锚点不超过3km且有有效地名}
+    R -->|是| G[保留位置记录，采用本轮新天气]
+    R -->|否| S[系统优先，高德备用解析区县]
+    S --> F{区县 key 是否改变}
     F -->|未变| G[保留位置记录，采用本轮新天气]
     F -->|改变或首次定位| H[请求新位置天气]
     H --> I[成功后切换并保存新位置]
-    E -->|失败| J[保留已有位置，提供手动重试]
+    E -->|坐标失败| J[保留已有位置，提供手动重试]
+    S -->|名称失败| T[用新坐标获取天气，名称显示当前位置]
 ```
 
 - 每轮请求同时包含实时天气和五日预报，HTTP fetch 使用 `cache: no-store`，不等待跨天。
@@ -207,7 +213,7 @@ python3 build_android.py
 
 流水线：复制 web 资源 → aapt 打包 → javac 编译 Java 8 字节码 → d8 生成 DEX → zipalign → apksigner 签名并校验。产物为 `TravelWeather-debug.apk`，中间文件与测试签名在 `build/` 中。
 
-0.11 测试包沿用 0.1 的本地测试签名；versionCode 递增到 16，versionName 为 0.11。签名密钥不进入源码仓库。其他机器首次构建会产生不同的测试签名，不能直接覆盖安装官方发布的 APK；后续原机版本需保留同一密钥。正式分发前应建立长期受保护的发布签名管理。
+0.11 测试包沿用 0.1 的本地测试签名；versionCode 递增到 16，versionName 为 0.11。签名密钥不进入源码仓库。其他机器首次构建会产生不同的测试签名，不能直接覆盖安装官方发布的 APK；后续原机版本需保留同一密钥。后续升级必须保留同一签名；当前签名仍为本地测试签名。
 
 本地网页预览：`python3 -m http.server 8765 --directory web`，访问 `http://127.0.0.1:8765`。页面功能可预览，但 `/reverse-geocode` 原生接口在普通静态服务器中不可用。
 
@@ -218,6 +224,7 @@ python3 build_android.py
 ```sh
 node tests/rain.mjs
 node tests/city-search.mjs
+node tests/location-distance.mjs
 ```
 
 浏览器测试需要 Chrome、Playwright 和上述 8765 端口静态服务。设置 `PLAYWRIGHT_PATH` 为 Playwright 模块路径（例如安装后的 `node_modules/playwright` 绝对路径）；未设置时脚本使用开发机的 CLI 内置模块路径。
@@ -232,6 +239,8 @@ node tests/touch-sort.cjs
 
 | 测试 | 覆盖 |
 | --- | --- |
+| location-distance | 3km 内外边界、无效坐标、占位名称不得复用 |
+| FallbackResolverTest | 系统成功不调用备用，异常 / 空值 / 超时切换，两路失败 |
 | rain | 雨量边界、缺失值、代码回退、图标雨线数 |
 | city-search | 3577 条索引的 ID、坐标、名称及后缀检索；典型城市 |
 | location-native | 原生接口错误、强制重新定位、区县解析失败保留天气、大致位置提示、更新时间成功/失败与重开、浏览器高精度回退 |
@@ -245,25 +254,25 @@ node tests/touch-sort.cjs
 ## 11. 安全、来源与已知限制
 
 - 不提交签名文件、SSH 密钥、认证令牌、设备日志、个人位置缓存和原 APK。
-- 当前请求不使用私有天气令牌；联网服务可用性、更新频率及使用条款由供应商决定。
+- 天气接口不使用私有天气令牌；高德备用接口使用构建时注入的 Key，仅存在于本地密钥文件及配置过的 APK 中，不提交至源码仓库。APK 内置 Key 可被提取，当前接受此测试阶段取舍；联网服务可用性、更新频率及使用条款由供应商决定。
 - 位置名称优先依赖设备 Geocoder；失败时使用配置好的高德服务。未配置 Key 时无法启用备用服务；Key 权限、限额、网络或两者都无有效地址时仍可能失败。
 - 同区县复用缓存坐标，区县内较远移动仍查询原点天气，这是当前需求的取舍。
 - `web/original.css` 保留自用户提供应用的基础视觉资产，其他主要交互及 Android 外壳在当前工程实现；本仓库不是原平台完整源码的恢复。
-- 国内索引来源：[QWeather LocationList](https://github.com/qwd/LocationList)；天气来源：[Open-Meteo](https://open-meteo.com/)；补充地名来源：[GeoNames](https://www.geonames.org/)。第三方来源和条款独立于项目作者署名。
+- 国内索引来源：[QWeather LocationList](https://github.com/qwd/LocationList)；天气来源：[Open-Meteo](https://open-meteo.com/)；补充地名来源：[GeoNames](https://www.geonames.org/)；备用地址解析：[高德](https://lbs.amap.com/api/webservice/guide/api/georegeo)。第三方来源和条款独立于项目作者署名。
 - 项目代码与文档采用 [MIT License](../LICENSE)，版权署名为 Leo Gorge（liu-gongjie）；第三方数据、服务及资产仍遵循各自条款。当前未接入和风在线服务。
 
 维护时优先保持位置与天气刷新分离、天气供应商适配集中、存储键向后兼容。修改数据结构需要显式迁移，修改供应商必须同步测试及来源文案。
 
 ## 12. 0.11 版本管理
 
-0.1 的 `v0.1` 标签、Release、`dist/TravelWeather-0.1.apk` 保持不变。开发前将用户编辑的 Release 说明纳入提交，建立 `backup/pre-0.11-20260929` 标签并导出完整 Git bundle。0.11 在 `develop/0.11` 分支开发，不改写已发布历史。测试包独立提供，三星 S26+ 省电模式实机验收后再决定正式发布。
+0.1 的 `v0.1` 标签、Release、`dist/TravelWeather-0.1.apk` 保持不变。开发前将用户编辑的 Release 说明纳入提交，建立 `backup/pre-0.11-20260929` 标签并导出完整 Git bundle。0.11 在 `develop/0.11` 分支开发，不改写已发布历史。当前准备 0.11 发布资料，未创建 `v0.11` 标签或正式 Release。发布准备与附件清单见 `RELEASE-PREP-0.11.md`。
 
 ### 高德备用逆地理编码配置
 
 城市名称搜索继续使用现有和风城市名录及 GeoNames，不调用高德城市查询。3 公里内已有有效位置名称时静默复用，不调用任一逆地理编码服务。
 
-申请高德“Web 服务”类型 Key 后，可将其单独保存在源码目录旁的 `amap-key.txt`，或通过 `AMAP_KEY_FILE` 指定文件路径，也可设置 `AMAP_WEB_KEY` 环境变量。默认执行 `python3 build_android.py` 不会把本地 Key 放入 APK，仍只启用系统解析。只有明确接受 Key 可提取风险的私有测试包才设置 `ALLOW_EMBEDDED_AMAP_KEY=1` 构建；正式分发需采用服务器代理（尚未实现）。构建每次覆盖密钥资产，移除配置后不会沿用旧 Key。
+申请高德“Web 服务”类型 Key 后，可将其单独保存在源码目录旁的 `amap-key.txt`，或通过 `AMAP_KEY_FILE` 指定文件路径，也可设置 `AMAP_WEB_KEY` 环境变量。默认执行 `python3 build_android.py` 不会把本地 Key 放入 APK，仍只启用系统解析。当前 0.11 APK 按项目选择使用内置 Key 方案，以 `ALLOW_EMBEDDED_AMAP_KEY=1 python3 build_android.py` 构建；暂不采用服务器代理。该开关需每次显式设置，默认构建仍不含 Key。构建每次覆盖密钥资产，移除配置后不会沿用旧 Key。
 
-Key 仅注入原生读取的 APK asset，不进入网页资源、Git、源码归档和日志；APK 内的 Key 仍可被提取，并非服务器级保密。分发前应在高德控制台管理额度和密钥使用范围。一次备用解析包含坐标转换和逆地理编码两次服务调用。系统成功不调用高德；高德失败不重试循环，沿用现有前端失败提示及新坐标天气逻辑。当前无 Key 时只能验证本地切换流程，真实服务验收需 Key 后进行。
+Key 仅注入原生读取的 APK asset，不进入网页资源、Git、源码归档和日志；APK 内的 Key 仍可被提取，并非服务器级保密。分发前应在高德控制台管理额度和密钥使用范围。一次备用解析包含坐标转换和逆地理编码两次服务调用。系统成功不调用高德；高德失败不重试循环，沿用现有前端失败提示及新坐标天气逻辑。当前 Key 的坐标转换与逆地理编码接口已通过真实网络验证；三星 S26+ 已安装含 Key 的包并通过启动和手动刷新检查。本轮可能走 3km 位置复用，未确认真机实际触发备用链路。
 
 原生切换策略测试：使用本地 JDK 编译 `FallbackResolver.java` 与 `tests/FallbackResolverTest.java`，运行 `com.travelweather.app.FallbackResolverTest`。覆盖系统成功不调用备用、异常、空值、超时切换及两者均失败。

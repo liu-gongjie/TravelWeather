@@ -4,7 +4,7 @@
 
 Multi-city weather at a glance, with current conditions and a five-day forecast. Clean, ad-free, and made for trip planning. Android only. Chinese version only.
 
-**开发版本：0.11；已发布稳定版本：0.1**
+**待发布版本：0.11；已发布稳定版本：0.1**
 
 **作者：Leo Gorge（liu-gongjie）**
 
@@ -12,7 +12,7 @@ Multi-city weather at a glance, with current conditions and a five-day forecast.
 
 - [APK 下载](https://github.com/liu-gongjie/TravelWeather/releases/tag/v0.1)     下载链接：https://github.com/liu-gongjie/TravelWeather/releases/tag/v0.1
 - [0.1版 发布说明](docs/RELEASE-0.1.md)
-- [0.11 开发说明与测试范围](docs/RELEASE-0.11.md)
+- [0.11 发布说明与测试范围](docs/RELEASE-0.11.md)
 - [设计开发文档](docs/DESIGN.md)：架构、功能、数据结构、流程、构建、测试与维护。
 - [城市索引来源](CITY-DATA.md)
 - [作者](AUTHORS.md)
@@ -33,7 +33,7 @@ python3 build_android.py
 
 ## 数据来源
 
-天气：Open-Meteo。国内地名：和风天气公开城市列表的本地快照。补充地名搜索：Open-Meteo Geocoding（GeoNames）。尚未接入和风在线城市或天气 API。
+天气：Open-Meteo。国内地名：和风天气公开城市列表的本地快照。补充地名搜索：Open-Meteo Geocoding（GeoNames）。尚未接入和风在线城市或天气 API。当前位置名称优先由系统 Geocoder 解析，失败时可使用高德备用服务；当前 0.11 测试 APK 已配置备用 Key，源码不包含 Key，默认自行构建不启用高德备用服务。
 
 第三方数据和原有样式资产的来源见设计文档。
 
