@@ -19,6 +19,11 @@ let located=read(LOCATION_KEY,null);
 if(!validCity(located)||!located.regionKey)located=null;
 let locationProblem=false, locationHint='';
 let refreshing = false, toastTimer, searchTimer, searchAbort, searchVersion = 0;
+// Migrate the fallback label saved by earlier 0.11 test builds.
+if(located?.name==='位置名称暂不可用'){
+  located={...located,name:'当前位置'};
+  write(LOCATION_KEY,located);
+}
 const escape = text => String(text).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const temp = n => n == null || !Number.isFinite(Number(n)) ? '—' : Math.round(n) + '°';
 function toast(message) { $('toast').textContent=message; $('toast').style.display='block'; clearTimeout(toastTimer); toastTimer=setTimeout(()=>$('toast').style.display='none',3000); }
@@ -77,7 +82,7 @@ function renderLocation(){
   const data=located&&(states.get(located.id)?.data||cache[located.id]);
   if(located&&data?.now){
     $('location').innerHTML=`<p>⌖ ${escape(located.name)}</p><div class="hero">${icon(data.now.weather_code)}<div><strong>${temp(data.now.temperature_2m)}</strong><p>${condition(data.now.weather_code)[0]}</p></div></div>`;
-    if(locationProblem){const retry=document.createElement('button');retry.textContent='定位未更新，点击重试';retry.onclick=()=>locate({fresh:true});$('location').append(retry);}
+    if(locationProblem){const retry=document.createElement('button');retry.textContent='点击重新定位';retry.onclick=()=>locate({fresh:true});$('location').append(retry);}
   } else if(locationProblem){$('location').innerHTML='<p>无法获取当前位置和天气</p><button id="locate">重新定位</button>';$('locate').onclick=()=>locate({fresh:true});}
   else $('location').innerHTML='<p>定位中…</p>';
   if(locationHint){const hint=document.createElement('small');hint.className='location-hint';hint.textContent=locationHint;$('location').append(hint);}
@@ -97,13 +102,13 @@ async function locate({cachedWeatherPromise=null,fresh=false}={}){
       // A valid coordinate is sufficient for weather even when the device's address service fails.
       // Keep a known district only when the new fix is very close to its saved coordinate.
       const nearby=located && Math.hypot((lat-Number(located.lat))*111,(lon-Number(located.lon))*111*Math.cos(lat*Math.PI/180))<1;
-      address=nearby?{name:located.name,key:located.regionKey}:{name:'位置名称暂不可用',key:`coordinates:${lat.toFixed(3)},${lon.toFixed(3)}`};
+      address=nearby?{name:located.name,key:located.regionKey}:{name:'当前位置',key:`coordinates:${lat.toFixed(3)},${lon.toFixed(3)}`};
       addressFailed=true;
     }
     const regionKey=address.key||address.name;
     const unchanged=located?.regionKey===regionKey;
     locationProblem=addressFailed;
-    locationHint=addressFailed?'已获取坐标，区县名称暂时解析失败，可重试':pos.coords.approximate?'当前为大致位置，区县边界附近可开启精确位置后重试':'';
+    locationHint=addressFailed?'已获取坐标，城市名称解析失败，可重试':pos.coords.approximate?'当前为大致位置，区县边界附近可开启精确位置后重试':'';
     if(unchanged){
       // Reuse district identity/coordinates, but refresh weather on every entry and manual refresh.
       await (cachedWeatherPromise || load(located));
