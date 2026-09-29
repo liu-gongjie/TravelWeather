@@ -30,10 +30,13 @@ final class NativeLocation implements LocationListener {
             try {
                 Location cached = manager.getLastKnownLocation(provider);
                 consider(cached);
-                if (usable(cached, 15000L, 1000f)) { succeed(cached); return; }
+                if (usable(cached, 15000L, 3000f)) { succeed(cached); return; }
             } catch (IllegalArgumentException | SecurityException ignored) { }
         }
         handler.postDelayed(this, 2000L);
+    } };
+    private final Runnable satelliteFallback = new Runnable() { @Override public void run() {
+        if (!finished) requestProvider(LocationManager.GPS_PROVIDER, true);
     } };
     private final Runnable timeout = new Runnable() { @Override public void run() { completeBest(); } };
 
@@ -50,25 +53,36 @@ final class NativeLocation implements LocationListener {
         if (finished) return;
         if (!hasPermission()) { fail("permission", "请在应用权限中允许使用位置信息"); return; }
         if (manager == null) { fail("unavailable", "设备定位服务暂不可用"); return; }
-        int active = 0;
-        // Platform fused provider does not require a Google Play Services dependency.
+        // Read recent fixes first, without activating a satellite request.
         for (String provider : new String[]{"fused", LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER}) {
             try {
-                if (!manager.isProviderEnabled(provider)) continue;
-                consider(manager.getLastKnownLocation(provider));
-                if (android.os.Build.VERSION.SDK_INT >= 31) {
-                    android.location.LocationRequest request = new android.location.LocationRequest.Builder(1000L)
-                        .setQuality(android.location.LocationRequest.QUALITY_HIGH_ACCURACY)
-                        .setMinUpdateIntervalMillis(1000L).setDurationMillis(45000L).build();
-                    manager.requestLocationUpdates(provider, request, activity.getMainExecutor(), this);
-                } else manager.requestLocationUpdates(provider, 1000L, 0f, this, Looper.getMainLooper());
-                active++;
+                if (manager.isProviderEnabled(provider)) consider(manager.getLastKnownLocation(provider));
             } catch (IllegalArgumentException | SecurityException ignored) { }
         }
-        if (active == 0) { fail("disabled", "请开启手机系统定位，并检查应用位置权限"); return; }
-        if (usable(best, fresh ? 15000L : 60000L, 1000f)) { succeed(best); return; }
+        if (usable(best, fresh ? 15000L : 60000L, 3000f)) { succeed(best); return; }
+        int active = 0;
+        if (requestProvider("fused", false)) active++;
+        if (requestProvider(LocationManager.NETWORK_PROVIDER, false)) active++;
+        if (active == 0) {
+            if (!requestProvider(LocationManager.GPS_PROVIDER, true)) {
+                fail("unavailable", "系统定位暂不可用，请检查定位开关与应用权限"); return;
+            }
+        } else handler.postDelayed(satelliteFallback, 8000L);
         handler.postDelayed(timeout, 45000L);
         handler.postDelayed(poll, 2000L);
+    }
+    private boolean requestProvider(String provider, boolean satellite) {
+        if (satellite && activity.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return false;
+        try {
+            if (!manager.isProviderEnabled(provider)) return false;
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                android.location.LocationRequest request = new android.location.LocationRequest.Builder(2000L)
+                    .setQuality(satellite ? android.location.LocationRequest.QUALITY_HIGH_ACCURACY : android.location.LocationRequest.QUALITY_BALANCED_POWER_ACCURACY)
+                    .setMinUpdateIntervalMillis(2000L).setDurationMillis(45000L).build();
+                manager.requestLocationUpdates(provider, request, activity.getMainExecutor(), this);
+            } else manager.requestLocationUpdates(provider, 2000L, 0f, this, Looper.getMainLooper());
+            return true;
+        } catch (IllegalArgumentException | SecurityException ignored) { return false; }
     }
     private boolean usable(Location location, long maxAge, float maxAccuracy) {
         if (location == null || !location.hasAccuracy()) return false;
@@ -85,7 +99,7 @@ final class NativeLocation implements LocationListener {
     @Override public void onLocationChanged(Location location) {
         if (finished) return;
         consider(location);
-        if (usable(location, 60000L, 1000f)) succeed(location);
+        if (usable(location, 60000L, 3000f)) succeed(location);
     }
     private void completeBest() {
         if (usable(best, 300000L, 10000f)) succeed(best);
@@ -109,6 +123,7 @@ final class NativeLocation implements LocationListener {
         finished = true;
         handler.removeCallbacks(timeout);
         handler.removeCallbacks(poll);
+        handler.removeCallbacks(satelliteFallback);
         if (manager != null) try { manager.removeUpdates(this); } catch (SecurityException ignored) { }
         result = json;
         done.countDown();
