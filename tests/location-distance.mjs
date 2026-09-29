@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {canReuseLocation} from '../web/location.js';
+const saved={regionKey:'CN/test',lat:0,lon:0};
+assert(canReuseLocation(saved,0,0));
+assert(canReuseLocation(saved,0,9.99/111.1949266));
+assert(!canReuseLocation(saved,0,10.01/111.1949266));
+assert(!canReuseLocation({...saved,regionKey:'coordinates:0,0'},0,0));
+assert(!canReuseLocation(null,0,0));
+assert(!canReuseLocation(saved,NaN,0));
+assert(!canReuseLocation(saved,23,113));
+console.log('PASS: 10km boundary, no placeholder reuse, missing/invalid coordinate, distant city');

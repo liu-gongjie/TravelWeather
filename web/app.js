@@ -1,4 +1,4 @@
-import {acquireLocation} from './location.js';
+import {acquireLocation, canReuseLocation} from './location.js';
 import {sameCity} from './city-index.js';
 import { createCardSorter } from './sortable.js';
 import { getJSON, searchCities, fetchWeather, condition, dailyCondition, icon } from './weather.js';
@@ -94,22 +94,24 @@ async function locate({cachedWeatherPromise=null,fresh=false}={}){
   try{
     const pos=await acquireLocation(fresh);
     const lat=pos.coords.latitude,lon=pos.coords.longitude;
-    let address, addressFailed=false, reusedName=false;
+    if(canReuseLocation(located,lat,lon)){
+      locationProblem=false;locationHint='';
+      await (cachedWeatherPromise || load(located));
+      renderLocation();return;
+    }
+    let address, addressFailed=false;
     try {
       address=await getJSON(`/reverse-geocode?${new URLSearchParams({lat,lon})}`);
       if(typeof address.name!=='string'||!address.name.trim())throw new Error('No district');
     } catch {
-      // A valid coordinate is sufficient for weather even when the device's address service fails.
-      // Keep a known district only when the new fix is very close to its saved coordinate.
-      const nearby=located && !located.regionKey.startsWith('coordinates:') && Math.hypot((lat-Number(located.lat))*111,(lon-Number(located.lon))*111*Math.cos(lat*Math.PI/180))<1;
-      reusedName=Boolean(nearby);
-      address=nearby?{name:located.name,key:located.regionKey}:{name:'当前位置',key:`coordinates:${lat.toFixed(3)},${lon.toFixed(3)}`};
+      // A new/distant position must never inherit the old city's name.
+      address={name:'当前位置',key:`coordinates:${lat.toFixed(3)},${lon.toFixed(3)}`};
       addressFailed=true;
     }
     const regionKey=address.key||address.name;
     const unchanged=located?.regionKey===regionKey;
-    locationProblem=addressFailed && !reusedName;
-    locationHint=reusedName?'城市名称暂未更新，沿用上次结果':addressFailed?'已获取坐标，城市名称解析失败，可重试':pos.coords.approximate?'当前为大致位置，区县边界附近可开启精确位置后重试':'';
+    locationProblem=addressFailed;
+    locationHint=addressFailed?'已获取坐标，城市名称解析失败，可重试':pos.coords.approximate?'当前为大致位置，区县边界附近可开启精确位置后重试':'';
     if(unchanged){
       // Reuse district identity/coordinates, but refresh weather on every entry and manual refresh.
       await (cachedWeatherPromise || load(located));
