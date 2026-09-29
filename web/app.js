@@ -101,7 +101,7 @@ async function locate({cachedWeatherPromise=null,fresh=false}={}){
     }
     let address, addressFailed=false;
     try {
-      address=await getJSON(`/reverse-geocode?${new URLSearchParams({lat,lon})}`);
+      address=await getJSON(`/reverse-geocode?${new URLSearchParams({lat,lon})}`, undefined, 28000);
       if(typeof address.name!=='string'||!address.name.trim())throw new Error('No district');
     } catch {
       // A new/distant position must never inherit the old city's name.

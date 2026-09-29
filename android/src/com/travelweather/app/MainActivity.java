@@ -80,28 +80,7 @@ public class MainActivity extends Activity {
             double lat=Double.parseDouble(uri.getQueryParameter("lat"));
             double lon=Double.parseDouble(uri.getQueryParameter("lon"));
             if(Double.isNaN(lat)||Double.isNaN(lon)||Math.abs(lat)>90||Math.abs(lon)>180)throw new IllegalArgumentException();
-            if(!android.location.Geocoder.isPresent())throw new IOException("Geocoder unavailable");
-            android.location.Geocoder coder=new android.location.Geocoder(this,java.util.Locale.SIMPLIFIED_CHINESE);
-            java.util.List<android.location.Address> addresses;
-            if (android.os.Build.VERSION.SDK_INT >= 33) {
-                java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
-                java.util.concurrent.atomic.AtomicReference<java.util.List<android.location.Address>> result = new java.util.concurrent.atomic.AtomicReference<>();
-                coder.getFromLocation(lat, lon, 1, new android.location.Geocoder.GeocodeListener() {
-                    @Override public void onGeocode(java.util.List<android.location.Address> list) { result.set(list); done.countDown(); }
-                    @Override public void onError(String message) { done.countDown(); }
-                });
-                if (!done.await(8, java.util.concurrent.TimeUnit.SECONDS)) throw new IOException("Geocoder timeout");
-                addresses = result.get();
-            } else addresses=coder.getFromLocation(lat,lon,1);
-            if(addresses==null||addresses.isEmpty())throw new IOException("No address");
-            android.location.Address address=addresses.get(0);
-            String city=address.getLocality(), district=address.getSubLocality();
-            String county=address.getSubAdminArea();
-            String name=(district!=null&&!district.trim().isEmpty())?district:county;
-            if(name==null||name.trim().isEmpty())name=city;
-            if(name==null||name.isEmpty())throw new IOException("No city");
-            String key=String.valueOf(address.getCountryCode())+"/"+String.valueOf(address.getAdminArea())+"/"+String.valueOf(address.getSubAdminArea())+"/"+String.valueOf(city)+"/"+name;
-            return jsonResponse("{\"name\":"+org.json.JSONObject.quote(name)+",\"key\":"+org.json.JSONObject.quote(key)+"}",200);
+            return jsonResponse(new ReverseGeocoder(this).resolve(lat,lon).toString(),200);
         } catch(Exception error) {
             return jsonResponse("{\"error\":true,\"reason\":\"城市名称暂时解析失败\"}",503);
         }
