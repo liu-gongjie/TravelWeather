@@ -265,7 +265,7 @@ node tests/touch-sort.cjs
 
 ## 12. 0.11 版本管理
 
-0.1 的 `v0.1` 标签、Release、`dist/TravelWeather-0.1.apk` 保持不变。开发前将用户编辑的 Release 说明纳入提交，建立 `backup/pre-0.11-20260929` 标签并导出完整 Git bundle。0.11 在 `develop/0.11` 分支开发，不改写已发布历史。当前准备 0.11 发布资料，未创建 `v0.11` 标签或正式 Release。发布准备与附件清单见 `RELEASE-PREP-0.11.md`。
+0.1 的 `v0.1` 标签、Release、`dist/TravelWeather-0.1.apk` 保持不变。开发前将用户编辑的 Release 说明纳入提交，建立 `backup/pre-0.11-20260929` 标签并导出完整 Git bundle。0.11 在 `develop/0.11` 分支开发，不改写已发布历史。0.11 发布源码使用 `v0.11` 标签固定，主分支包含该版实现与文档。发布附件清单见 `RELEASE-PREP-0.11.md`，Release 的实际发布状态以 GitHub 页面为准。
 
 ### 高德备用逆地理编码配置
 

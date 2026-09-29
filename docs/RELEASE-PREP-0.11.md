@@ -1,11 +1,11 @@
 # 0.11 发布准备清单
 
-当前状态：资料与本地附件待发布；本文不代表已创建 GitHub Release。
+发布附件与操作记录；源码标签及附件发布状态分别核对，以 GitHub Release 页面为准。
 
 ## 发布元数据
 
 - 标题：旅人天气 · Travel Weather 0.11
-- 拟用标签：`v0.11`（正式发布时创建，不移动 `v0.1`）
+- 拟用标签：`v0.11`（不移动 `v0.1`）
 - 当前准备分支：`develop/0.11`
 - Release 正文：`docs/RELEASE-0.11.md`
 - 作者：Leo Gorge（liu-gongjie）；主要贡献者：Codex
@@ -37,4 +37,4 @@
 3. 以 `docs/RELEASE-0.11.md` 为正文创建 Release，上传 APK、源码归档和 `SHA256SUMS`。
 4. 发布后将 README 的稳定版本与下载链接更新为 0.11，检查下载文件和校验值。
 
-现有 `.github/workflows/release.yml` 固定用于 0.1，不支持发布 0.11；不要手动运行它来发布新版本，也不要覆盖旧 Release 附件。本轮不修改此工作流、不推送新标签、不发布 Release。
+现有 `.github/workflows/release.yml` 固定用于 0.1，不支持发布 0.11；不要手动运行它来发布新版本，也不要覆盖旧 Release 附件。新版本使用独立的 `v0.11` 标签和 Release 发布，不运行旧工作流。
