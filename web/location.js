@@ -2,7 +2,7 @@ import {getJSON} from './weather.js';
 
 export async function acquireLocation(fresh = false) {
   if (location.protocol === 'https:' && location.hostname === 'appassets.androidplatform.net') {
-    const data = await getJSON(`/location?fresh=${fresh ? 1 : 0}`, undefined, 60000);
+    const data = await getJSON(`/location?fresh=${fresh ? 1 : 0}`, undefined, 80000);
     if (!Number.isFinite(data.latitude) || !Number.isFinite(data.longitude)
         || Math.abs(data.latitude)>90 || Math.abs(data.longitude)>180) throw new Error('定位结果无效，请重试');
     return {coords:data};

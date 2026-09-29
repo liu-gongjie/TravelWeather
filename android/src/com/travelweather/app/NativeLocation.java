@@ -24,6 +24,17 @@ final class NativeLocation implements LocationListener {
     private Location best;
     private volatile String result;
     private boolean finished;
+    private final Runnable poll = new Runnable() { @Override public void run() {
+        if (finished) return;
+        for (String provider : new String[]{"fused", LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER}) {
+            try {
+                Location cached = manager.getLastKnownLocation(provider);
+                consider(cached);
+                if (usable(cached, 15000L, 1000f)) { succeed(cached); return; }
+            } catch (IllegalArgumentException | SecurityException ignored) { }
+        }
+        handler.postDelayed(this, 2000L);
+    } };
     private final Runnable timeout = new Runnable() { @Override public void run() { completeBest(); } };
 
     NativeLocation(Activity activity, boolean fresh) {
@@ -45,13 +56,19 @@ final class NativeLocation implements LocationListener {
             try {
                 if (!manager.isProviderEnabled(provider)) continue;
                 consider(manager.getLastKnownLocation(provider));
-                manager.requestLocationUpdates(provider, 1000L, 0f, this, Looper.getMainLooper());
+                if (android.os.Build.VERSION.SDK_INT >= 31) {
+                    android.location.LocationRequest request = new android.location.LocationRequest.Builder(1000L)
+                        .setQuality(android.location.LocationRequest.QUALITY_HIGH_ACCURACY)
+                        .setMinUpdateIntervalMillis(1000L).setDurationMillis(45000L).build();
+                    manager.requestLocationUpdates(provider, request, activity.getMainExecutor(), this);
+                } else manager.requestLocationUpdates(provider, 1000L, 0f, this, Looper.getMainLooper());
                 active++;
             } catch (IllegalArgumentException | SecurityException ignored) { }
         }
         if (active == 0) { fail("disabled", "请开启手机系统定位，并检查应用位置权限"); return; }
-        if (!fresh && usable(best, 60000L, 1000f)) { succeed(best); return; }
-        handler.postDelayed(timeout, 25000L);
+        if (usable(best, fresh ? 15000L : 60000L, 1000f)) { succeed(best); return; }
+        handler.postDelayed(timeout, 45000L);
+        handler.postDelayed(poll, 2000L);
     }
     private boolean usable(Location location, long maxAge, float maxAccuracy) {
         if (location == null || !location.hasAccuracy()) return false;
@@ -72,7 +89,7 @@ final class NativeLocation implements LocationListener {
     }
     private void completeBest() {
         if (usable(best, 300000L, 10000f)) succeed(best);
-        else fail("timeout", "定位暂未成功，请到信号较好的位置重试；省电模式可能限制定位");
+        else fail("timeout", "系统暂未返回可用位置，请稍后点击重新定位");
     }
     private void succeed(Location location) {
         try {
@@ -91,13 +108,14 @@ final class NativeLocation implements LocationListener {
         if (finished) return;
         finished = true;
         handler.removeCallbacks(timeout);
+        handler.removeCallbacks(poll);
         if (manager != null) try { manager.removeUpdates(this); } catch (SecurityException ignored) { }
         result = json;
         done.countDown();
     }
     String await() {
         try {
-            if (done.await(55, TimeUnit.SECONDS)) return result;
+            if (done.await(75, TimeUnit.SECONDS)) return result;
         } catch (InterruptedException error) { Thread.currentThread().interrupt(); }
         handler.post(new Runnable() { @Override public void run() { fail("timeout", "定位等待超时，请重试"); } });
         return "{\"error\":true,\"code\":\"timeout\",\"reason\":\"定位等待超时，请重试\"}";
