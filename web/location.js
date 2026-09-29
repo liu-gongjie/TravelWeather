@@ -24,5 +24,5 @@ export function canReuseLocation(saved, lat, lon) {
   if (!values.every(Number.isFinite)) return false;
   const rad=Math.PI/180;
   const a=Math.sin((lat-values[0])*rad/2)**2+Math.cos(values[0]*rad)*Math.cos(lat*rad)*Math.sin((lon-values[1])*rad/2)**2;
-  return 6371*2*Math.asin(Math.sqrt(Math.min(1,a)))<=10;
+  return 6371*2*Math.asin(Math.sqrt(Math.min(1,a)))<=3;
 }
