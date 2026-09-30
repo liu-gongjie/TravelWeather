@@ -102,7 +102,6 @@ public class MainActivity extends Activity {
         super.onResume();
         resumed=true;
         if(nativeLocation!=null && nativeLocation.hasPermission() && web.hasWindowFocus()) nativeLocation.start();
-        if(web!=null)web.evaluateJavascript("window.dispatchEvent(new Event('travelweather-resume'));",null);
     }
     @Override public void onWindowFocusChanged(boolean hasFocus){
         super.onWindowFocusChanged(hasFocus);

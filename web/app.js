@@ -65,9 +65,8 @@ function load(city){
   })();
   weatherRequests.set(city.id,task);return task;
 }
-let lastRefreshAttempt=0;
 async function refresh(){
-  if(refreshing)return;refreshing=true;lastRefreshAttempt=Date.now();setRefreshing(true);
+  if(refreshing)return;refreshing=true;setRefreshing(true);
   try{
     const cachedWeatherPromise=located?load(located):null;
     await Promise.all([...cities.map(load),cachedWeatherPromise,locate({cachedWeatherPromise})]);
@@ -143,7 +142,4 @@ async function locate({cachedWeatherPromise=null,fresh=false}={}){
     locationProblem=true;renderLocation();
   }finally{locating=false;renderLocation();}
 }
-function autoLocate(){if(!document.hidden && Date.now()-lastRefreshAttempt>1500)refresh();}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)autoLocate();});
-window.addEventListener('travelweather-resume',autoLocate);
 applyTheme();render();renderLocation();refresh();
