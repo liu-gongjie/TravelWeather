@@ -1,7 +1,7 @@
 const {chromium}=require(process.env.PLAYWRIGHT_PATH||'/opt/homebrew/lib/node_modules/@playwright/cli/node_modules/playwright');const assert=require('node:assert/strict');
 (async()=>{const b=await chromium.launch({channel:'chrome',headless:true});try{
-const p=await b.newPage({geolocation:{latitude:28,longitude:112},permissions:['geolocation']});let weatherCalls=0,addressCalls=0,region='A',fail=false,hold=false,release,temperature=24;
-await p.route('https://api.open-meteo.com/**',r=>{weatherCalls++;const url=new URL(r.request().url());assert(url.searchParams.get('current').includes('temperature_2m'));assert(url.searchParams.get('daily').includes('temperature_2m_max'));return r.fulfill({json:{current:{time:'2026-09-28T12:00',temperature_2m:temperature,weather_code:3},daily:{time:['2026-09-28'],weather_code:[3],temperature_2m_max:[temperature+3],temperature_2m_min:[18]}}})});
+const p=await b.newPage({geolocation:{latitude:28,longitude:112},permissions:['geolocation']});let weatherCalls=0,weatherLatitudes=[],addressCalls=0,region='A',fail=false,hold=false,release,temperature=24;
+await p.route('https://api.open-meteo.com/**',r=>{weatherCalls++;const url=new URL(r.request().url());weatherLatitudes.push(Number(url.searchParams.get('latitude')));assert(url.searchParams.get('current').includes('temperature_2m'));assert(url.searchParams.get('daily').includes('temperature_2m_max'));return r.fulfill({json:{current:{time:'2026-09-28T12:00',temperature_2m:temperature,weather_code:3},daily:{time:['2026-09-28'],weather_code:[3],temperature_2m_max:[temperature+3],temperature_2m_min:[18]}}})});
 await p.route('**/reverse-geocode?*',async r=>{addressCalls++;if(hold)await new Promise(resolve=>release=resolve);await r.fulfill({status:fail?503:200,json:{name:region==='A'?'岳麓区':'芙蓉区',key:region}})});
 const waitReady=()=>p.waitForFunction(()=>!document.querySelector('#refresh').disabled);
 await p.goto((process.env.TEST_BASE_URL||'http://127.0.0.1:8765'));await waitReady();assert.equal(await p.locator('#location > p').textContent(),'⌖ 岳麓区');assert.equal(weatherCalls,2);
@@ -16,5 +16,11 @@ await p.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable
 await p.locator('#refresh').click();await waitReady();assert.equal(addressCalls,previousAddressCalls+1);assert.equal(weatherCalls,14);
 const newAnchor=await p.evaluate(()=>JSON.parse(localStorage.getItem('travelweather-last-location')));assert.equal(newAnchor.lat,29.08);assert.equal(newAnchor.regionKey,'B');
 await p.locator('#refresh').click();await waitReady();assert.equal(addressCalls,previousAddressCalls+1);assert.equal(weatherCalls,16);
+await p.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){ok({coords:{latitude:29.09,longitude:112}})}}}));
+await p.locator('#refresh').click();await waitReady();assert.equal(addressCalls,previousAddressCalls+1);assert(weatherLatitudes.includes(29.09));
+const withinAnchor=await p.evaluate(()=>JSON.parse(localStorage.getItem('travelweather-last-location')));assert.equal(withinAnchor.lat,29.09);assert.equal(withinAnchor.anchorLat,29.08);
+await p.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){ok({coords:{latitude:29.1,longitude:112}})}}}));
+await p.locator('#refresh').click();await waitReady();assert.equal(addressCalls,previousAddressCalls+2);assert(weatherLatitudes.includes(29.1));
+const confirmedAnchor=await p.evaluate(()=>JSON.parse(localStorage.getItem('travelweather-last-location')));assert.equal(confirmedAnchor.anchorLat,29.1);
 console.log('PASS: instant cached location; launch/manual refresh requests current+forecast for all cities; resume/visibility changes do not refresh; same district preserved; confirmed same-district movement saves new anchor and avoids repeated address lookup; changed district switched; geocoder failure still refreshes weather');
 }finally{await b.close()}})().catch(e=>{console.error(e);process.exit(1)});

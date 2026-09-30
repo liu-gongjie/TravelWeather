@@ -20,9 +20,9 @@ export async function acquireLocation(fresh = false) {
 // Compare against the saved anchor, not the last fix, so small steps cannot drift indefinitely.
 export function canReuseLocation(saved, lat, lon) {
   if (!saved?.regionKey || saved.regionKey.startsWith('coordinates:')) return false;
-  const values=[Number(saved.lat),Number(saved.lon),lat,lon];
+  const values=[Number(saved.anchorLat ?? saved.lat),Number(saved.anchorLon ?? saved.lon),lat,lon];
   if (!values.every(Number.isFinite)) return false;
   const rad=Math.PI/180;
   const a=Math.sin((lat-values[0])*rad/2)**2+Math.cos(values[0]*rad)*Math.cos(lat*rad)*Math.sin((lon-values[1])*rad/2)**2;
-  return 6371*2*Math.asin(Math.sqrt(Math.min(1,a)))<=3;
+  return 6371*2*Math.asin(Math.sqrt(Math.min(1,a)))<=2;
 }

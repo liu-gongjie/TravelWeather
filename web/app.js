@@ -107,7 +107,14 @@ async function locate({cachedWeatherPromise=null,fresh=false}={}){
     const lat=pos.coords.latitude,lon=pos.coords.longitude;
     if(canReuseLocation(located,lat,lon)){
       locationProblem=false;locationHint='';
-      await (cachedWeatherPromise || load(located));
+      const moved=Number(located.lat)!==lat || Number(located.lon)!==lon;
+      if(moved){
+        // Keep the last name-confirmed anchor fixed while weather follows the latest coordinates.
+        located={...located,anchorLat:located.anchorLat ?? located.lat,anchorLon:located.anchorLon ?? located.lon,lat,lon};
+        write(LOCATION_KEY,located);
+        await cachedWeatherPromise;
+        await load(located);
+      }else await (cachedWeatherPromise || load(located));
       renderLocation();return;
     }
     let address, addressFailed=false;
@@ -125,7 +132,7 @@ async function locate({cachedWeatherPromise=null,fresh=false}={}){
     locationHint=addressFailed?'已获取坐标，城市名称解析失败，可重试':pos.coords.approximate?'当前为大致位置，区县边界附近可开启精确位置后重试':'';
     if(unchanged && !addressFailed){
       // A successful address lookup confirms the new anchor, even within the same district.
-      located={...located,name:address.name,lat,lon};
+      located={...located,name:address.name,lat,lon,anchorLat:lat,anchorLon:lon};
       write(LOCATION_KEY,located);
       // Finish the old-coordinate request before loading weather at the confirmed new coordinates.
       await cachedWeatherPromise;
@@ -133,7 +140,7 @@ async function locate({cachedWeatherPromise=null,fresh=false}={}){
       renderLocation();
       return;
     }
-    const city={id:'located:'+regionKey,name:address.name,regionKey,lat,lon};
+    const city={id:'located:'+regionKey,name:address.name,regionKey,lat,lon,anchorLat:lat,anchorLon:lon};
     // Fetch before swapping so a moved/failed location cannot display the old area's weather.
     const data=await fetchWeather(city);
     const previous=located?.id;
