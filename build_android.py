@@ -9,6 +9,20 @@ bt=sdk/'build-tools'/version
 platform=sdk/'platforms'/os.environ.get('ANDROID_PLATFORM','android-34')/'android.jar'
 java=Path(os.environ.get('JAVA_HOME','/Applications/Android Studio.app/Contents/jbr/Contents/Home'))
 env={**os.environ,'JAVA_HOME':str(java),'PATH':str(java/'bin')+os.pathsep+os.environ['PATH']}
+# Signing identity must be supplied explicitly; never generate a replacement silently.
+required_signing = ('ANDROID_KEYSTORE', 'ANDROID_KEY_ALIAS', 'ANDROID_STORE_PASSWORD')
+missing = [name for name in required_signing if not os.environ.get(name)]
+if missing:
+ raise SystemExit('Missing signing configuration: ' + ', '.join(missing))
+key = Path(os.environ['ANDROID_KEYSTORE']).expanduser()
+if not key.is_absolute(): key = root / key
+if not key.is_file():
+ raise SystemExit('Signing keystore does not exist; restore the original or provide an explicitly chosen key')
+if not os.access(key, os.R_OK):
+ raise SystemExit('Signing keystore is not readable')
+alias = os.environ['ANDROID_KEY_ALIAS']
+# PKCS12 commonly uses the same password for the store and its private-key entry.
+env['ANDROID_KEY_PASSWORD'] = os.environ.get('ANDROID_KEY_PASSWORD') or os.environ['ANDROID_STORE_PASSWORD']
 build=root/'build'; build.mkdir(exist_ok=True)
 for folder in ['classes','dex','assets/web']:(build/folder).mkdir(parents=True,exist_ok=True)
 shutil.copytree(root/'web',build/'assets/web',dirs_exist_ok=True)
@@ -29,9 +43,10 @@ run(bt/'d8','--lib',platform,'--min-api','23','--output',build/'dex',*list((buil
 with zipfile.ZipFile(build/'unsigned.apk','a',zipfile.ZIP_DEFLATED) as z:
  for f in (build/'dex').glob('*.dex'):z.write(f,f.name)
 run(bt/'zipalign','-f','4',build/'unsigned.apk',build/'aligned.apk')
-key=build/'debug.keystore'
-if not key.exists():run(java/'bin/keytool','-genkeypair','-keystore',key,'-storepass','android','-keypass','android','-alias','androiddebugkey','-dname','CN=TravelWeather Debug','-keyalg','RSA','-validity','10000')
 output=root/'TravelWeather-debug.apk'
-run(bt/'apksigner','sign','--ks',key,'--ks-pass','pass:android','--out',output,build/'aligned.apk')
+# Environment references keep password values out of command arguments and error messages.
+run(bt/'apksigner','sign','--ks',key,'--ks-key-alias',alias,
+    '--ks-pass','env:ANDROID_STORE_PASSWORD','--key-pass','env:ANDROID_KEY_PASSWORD',
+    '--out',output,build/'aligned.apk')
 run(bt/'apksigner','verify',output)
 print(output)
