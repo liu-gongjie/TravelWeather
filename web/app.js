@@ -80,6 +80,13 @@ function setRefreshing(active){
 }
 $('refresh').onclick=refresh;
 createPullRefresh(document, {onRefresh:refresh, isRefreshing:()=>refreshing, isSorting:()=>document.body.classList.contains('sorting-cities')});
+$('about').onclick=()=>$('aboutDialog').showModal();
+$('aboutDialog').addEventListener('click',e=>{
+  if(e.target!==$('aboutDialog'))return;
+  const r=e.target.getBoundingClientRect();
+  if(e.clientX<r.left || e.clientX>r.right || e.clientY<r.top || e.clientY>r.bottom)e.target.close();
+});
+$('aboutDialog').addEventListener('close',()=>$('about').focus({preventScroll:true}));
 $('add').onclick=()=>{ $('searchDialog').showModal();$('search').value='';$('results').textContent='输入城市名搜索';$('search').focus(); };
 $('searchDialog').addEventListener('close',()=>{clearTimeout(searchTimer);searchAbort?.abort();searchVersion++;});
 let composingCity = false;

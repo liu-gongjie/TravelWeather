@@ -4,7 +4,7 @@
 
 Multi-city weather at a glance, with current conditions and a five-day forecast. Clean, ad-free, and made for trip planning. Android only. Chinese version only.
 
-**当前发布版本：0.12**
+**当前发布版本：0.12；本地开发版本：0.13**
 
 **作者：Leo Gorge（liu-gongjie）**
 
@@ -14,6 +14,7 @@ Multi-city weather at a glance, with current conditions and a five-day forecast.
 - [0.1版 发布说明](docs/RELEASE-0.1.md)
 - [0.11 发布说明与测试范围](docs/RELEASE-0.11.md)
 - [0.12 发布说明](docs/RELEASE-0.12.md)
+- [0.13 开发说明（尚未发布）](docs/RELEASE-0.13.md)
 - [设计开发文档](docs/DESIGN.md)：架构、功能、数据结构、流程、构建、测试与维护。
 - [城市索引来源](CITY-DATA.md)
 - [作者](AUTHORS.md)
@@ -30,7 +31,7 @@ python3 -m http.server 8765 --directory web
 python3 build_android.py
 ```
 
-构建前必须显式提供签名密钥路径、别名及口令环境变量；未配置或密钥缺失时直接报错。具体构建参数、测试环境和签名限制见设计开发文档。当前安全重签 APK 使用正式发布签名（versionCode 18）。原机构建可使用 `scripts/build_release.py` 从 macOS 钥匙串读取口令，签名密钥不会提交到仓库。
+构建前必须显式提供签名密钥路径、别名及口令环境变量；未配置或密钥缺失时直接报错。具体构建参数、测试环境和签名限制见设计开发文档。0.13 开发版沿用正式发布签名（versionCode 19）。原机构建可使用 `scripts/build_release.py` 从 macOS 钥匙串读取口令，签名密钥不会提交到仓库。
 
 ## 数据来源
 
