@@ -11,3 +11,5 @@ node_modules/
 preview-*.png
 !dist/TravelWeather-0.1.apk
 amap-key.txt
+*.env
+*.pem

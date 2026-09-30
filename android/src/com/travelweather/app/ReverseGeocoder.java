@@ -43,48 +43,25 @@ final class ReverseGeocoder {
             return new org.json.JSONObject().put("name",name).put("key",key);
     }
     private JSONObject amap(double lat, double lon) throws Exception {
-        String key;
-        try (InputStream in = context.getAssets().open("amap-key.txt")) {
-            key = read(in).trim();
+        String endpoint;
+        try (InputStream in = context.getAssets().open("geocoder-proxy.txt")) {
+            endpoint = read(in).trim();
         }
-        if (key.isEmpty()) throw new IOException("AMap key not configured");
-        // Android Location coordinates remain WGS84 for weather and saved locations.
-        // Only the address lookup uses the converted coordinates.
-        JSONObject converted = request("assistant/coordinate/convert", key,
-            "locations", String.format(java.util.Locale.US,"%.6f,%.6f",lon,lat), "coordsys", "gps");
-        String coordinates = converted.optString("locations", "");
-        if (!coordinates.matches("-?\\d+(\\.\\d+)?,-?\\d+(\\.\\d+)?")) throw new IOException("Invalid converted coordinates");
-        JSONObject data = request("geocode/regeo", key, "location", coordinates, "extensions", "base");
-        JSONObject address = data.getJSONObject("regeocode").getJSONObject("addressComponent");
-        String district = field(address,"district"), city = field(address,"city"), province = field(address,"province");
-        String name = !district.isEmpty() ? district : city;
-        // Municipality responses may contain an empty city array.
-        if (name.isEmpty() && (province.equals("北京市") || province.equals("上海市") || province.equals("天津市") || province.equals("重庆市"))) name = province;
-        if (name.isEmpty()) throw new IOException("No city in AMap response");
-        String code = field(address,"adcode");
-        return new JSONObject().put("name",name).put("key","amap/"+(code.isEmpty()?province+"/"+city+"/"+name:code));
-    }
-    private static String field(JSONObject data, String key) {
-        Object value = data.opt(key);
-        return value instanceof String ? ((String)value).trim() : "";
-    }
-    private JSONObject request(String path, String key, String... params) throws Exception {
-        Uri.Builder uri = Uri.parse("https://restapi.amap.com/v3/"+path).buildUpon().appendQueryParameter("key",key).appendQueryParameter("output","JSON");
-        for (int i=0;i<params.length;i+=2) uri.appendQueryParameter(params[i],params[i+1]);
-        HttpURLConnection connection = (HttpURLConnection)new URL(uri.build().toString()).openConnection();
-        connection.setConnectTimeout(3000); connection.setReadTimeout(3000);
+        Uri base = Uri.parse(endpoint);
+        if (!"https".equals(base.getScheme()) || base.getHost()==null || base.getUserInfo()!=null
+                || base.getQuery()!=null || base.getFragment()!=null) throw new IOException("HTTPS proxy not configured");
+        Uri uri = base.buildUpon().appendQueryParameter("lat",Double.toString(lat))
+            .appendQueryParameter("lon",Double.toString(lon)).build();
+        HttpURLConnection connection = (HttpURLConnection)new URL(uri.toString()).openConnection();
+        connection.setConnectTimeout(3000); connection.setReadTimeout(11000);
         connection.setInstanceFollowRedirects(false);
         try {
-            if(connection.getResponseCode()!=200) throw new IOException("AMap HTTP failure");
+            if(connection.getResponseCode()!=200) throw new IOException("Address proxy unavailable");
             JSONObject result;
             try (InputStream in=connection.getInputStream()) { result=new JSONObject(read(in)); }
-            if (!"1".equals(result.optString("status"))) {
-                // Log only the numeric service code; never key, URL or precise coordinates.
-                String code=result.optString("infocode","");
-                if(code.matches("[0-9]{5}")) android.util.Log.w("TravelWeather", "AMap error code: "+code);
-                throw new IOException("AMap service failure");
-            }
-            return result;
+            String name=result.optString("name","").trim(), key=result.optString("key","").trim();
+            if(name.isEmpty() || name.length()>100 || key.isEmpty() || key.length()>300) throw new IOException("Invalid proxy response");
+            return new JSONObject().put("name",name).put("key",key);
         } finally { connection.disconnect(); }
     }
     private static String read(InputStream in) throws IOException {

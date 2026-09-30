@@ -1,3 +1,4 @@
+import { createPullRefresh } from './refresh.js';
 import {acquireLocation, canReuseLocation} from './location.js';
 import {sameCity} from './city-index.js';
 import { createCardSorter } from './sortable.js';
@@ -53,22 +54,33 @@ function renderUpdateTime(){
   $('lastUpdated').textContent=latest?`最新更新时间：${new Date(latest).toLocaleString('zh-CN',{hour12:false})}${partial?'（部分城市更新失败）':''}`:'最新更新时间：暂无';
 }
 function render(){ renderUpdateTime();if(sorter.isBusy())return; $('cards').replaceChildren(...(located?[renderCard(located,0,false)]:[]),...cities.map((c,i)=>renderCard(c,i)));$('add').disabled=cities.length>=10; }
-async function load(city){
-  if(states.get(city.id)?.loading)return;
+const weatherRequests=new Map();
+function load(city){
+  if(weatherRequests.has(city.id))return weatherRequests.get(city.id);
   states.set(city.id,{...states.get(city.id),loading:true,error:''});render();
-  try{const data=await fetchWeather(city);states.set(city.id,{data,loading:false,error:''});if(cities.some(c=>c.id===city.id)||located?.id===city.id){cache[city.id]=data;write(CACHE_KEY,cache);}if(located?.id===city.id)renderLocation();}
-  catch(error){if(cache[city.id])toast(`${city.name}更新失败，保留上次天气`);states.set(city.id,{...states.get(city.id),loading:false,error:error.name==='AbortError'?'请求超时，请检查网络后刷新':error.message||'获取天气失败'});}
-  render();
+  const task=(async()=>{
+    try{const data=await fetchWeather(city);states.set(city.id,{data,loading:false,error:''});if(cities.some(c=>c.id===city.id)||located?.id===city.id){cache[city.id]=data;write(CACHE_KEY,cache);}if(located?.id===city.id)renderLocation();}
+    catch(error){if(cache[city.id])toast(`${city.name}更新失败，保留上次天气`);states.set(city.id,{...states.get(city.id),loading:false,error:error.name==='AbortError'?'请求超时，请检查网络后刷新':error.message||'获取天气失败'});}
+    finally{weatherRequests.delete(city.id);render();}
+  })();
+  weatherRequests.set(city.id,task);return task;
 }
 let lastRefreshAttempt=0;
 async function refresh(){
-  if(refreshing)return;refreshing=true;lastRefreshAttempt=Date.now();$('refresh').disabled=true;
+  if(refreshing)return;refreshing=true;lastRefreshAttempt=Date.now();setRefreshing(true);
   try{
     const cachedWeatherPromise=located?load(located):null;
     await Promise.all([...cities.map(load),cachedWeatherPromise,locate({cachedWeatherPromise})]);
-  }finally{refreshing=false;$('refresh').disabled=false;}
+  }finally{refreshing=false;setRefreshing(false);}
+}
+function setRefreshing(active){
+  $('refresh').disabled=active;
+  $('refresh').classList.toggle('refreshing',active);
+  $('refresh').setAttribute('aria-busy',String(active));
+  $('refresh').setAttribute('aria-label',active?'正在刷新天气':'刷新天气');
 }
 $('refresh').onclick=refresh;
+createPullRefresh(document, {onRefresh:refresh, isRefreshing:()=>refreshing, isSorting:()=>document.body.classList.contains('sorting-cities')});
 $('add').onclick=()=>{ $('searchDialog').showModal();$('search').value='';$('results').textContent='输入城市名搜索';$('search').focus(); };
 $('searchDialog').addEventListener('close',()=>{clearTimeout(searchTimer);searchAbort?.abort();searchVersion++;});
 let composingCity = false;
