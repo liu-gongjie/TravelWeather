@@ -276,7 +276,7 @@ node tests/touch-sort.cjs
 
 0.12 构建使用 `GEOCODER_PROXY_URL=https://域名/v1/reverse-geocode python3 build_android.py`，APK 只保存 HTTPS 代理地址。构建脚本不再读取或注入高德 Key，主动删除旧构建资产中的 `amap-key.txt`。未配置代理时仅使用系统 Geocoder。
 
-代理实现位于 `server/geocoder.py`，使用 Python 标准库，监听本机 8081，由 Nginx 终止 HTTPS 并限流，systemd 管理服务。上游请求地址固定，参数校验、超时和响应大小限制，最多 4 个上游并发，仅返回地名和行政区标识，不记录精确坐标或密钥。单 IP 与全局配额限制不能保证识别真实客户端，需要结合高德出口 IP 白名单和额度控制。配置和部署步骤见 [服务端说明](../server/README.md)。当前尚待云服务器部署和真机验收。
+代理实现位于 `server/geocoder.py`，使用 Python 标准库，监听本机 8081，由 Nginx 终止 HTTPS 并限流，systemd 管理服务。上游请求地址固定，参数校验、超时和响应大小限制，最多 4 个上游并发，仅返回地名和行政区标识，不记录精确坐标或密钥。单 IP 与全局配额限制不能保证识别真实客户端，需要结合高德出口 IP 白名单和额度控制。配置和部署步骤见 [服务端说明](../server/README.md)。已部署腾讯云 Ubuntu 24.04 服务器，代理地址为 `https://43.134.98.67/v1/reverse-geocode`，采用 Let’s Encrypt IP 证书和自动续期；真实地址解析已验证，真机完整链路待验收。
 
 系统成功不调用代理；3 公里内已有有效名称不调用任一逆地理编码服务。高德失败不循环重试，仍遵循现有新坐标天气及失败提示逻辑。0.11 发布 APK 的内置旧 Key 不会因 0.12 的变更自动消失，迁移后应在高德控制台更换及停用旧 Key。
 
