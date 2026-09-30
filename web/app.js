@@ -92,7 +92,7 @@ let locating = false;
 function renderLocation(){
   const data=located&&(states.get(located.id)?.data||cache[located.id]);
   if(located&&data?.now){
-    $('location').innerHTML=`<p>⌖ ${escape(located.name)}</p><div class="hero">${icon(data.now.weather_code)}<div><strong>${temp(data.now.temperature_2m)}</strong><p>${condition(data.now.weather_code)[0]}</p></div></div>`;
+    $('location').innerHTML=`<p>⌖ ${escape(located.name)}</p><div class="hero"><div class="hero-condition">${icon(data.now.weather_code)}<p>${condition(data.now.weather_code)[0]}</p></div><strong>${temp(data.now.temperature_2m)}</strong></div>`;
     if(locationProblem){const retry=document.createElement('button');retry.textContent='点击重新定位';retry.onclick=()=>locate({fresh:true});$('location').append(retry);}
   } else if(locationProblem){$('location').innerHTML='<p>无法获取当前位置和天气</p><button id="locate">重新定位</button>';$('locate').onclick=()=>locate({fresh:true});}
   else $('location').innerHTML='<p>定位中…</p>';
