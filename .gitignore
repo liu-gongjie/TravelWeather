@@ -20,3 +20,5 @@ amap-key.txt
 *.pfx
 keystore.properties
 signing.local.json
+
+!dist/0.13/TravelWeather-0.13.apk

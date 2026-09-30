@@ -1,0 +1,28 @@
+name: Publish TravelWeather 0.13
+on:
+  push:
+    tags: ['v0.13']
+permissions:
+  contents: write
+concurrency:
+  group: release-v0.13
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify packaged APK
+        working-directory: dist/0.13
+        run: sha256sum --check SHA256SUMS
+      - name: Publish release and APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          if ! gh release view v0.13 >/dev/null 2>&1; then
+            gh release create v0.13 --verify-tag --draft --title '旅人天气 · Travel Weather 0.13' --notes-file docs/RELEASE-0.13.md
+          fi
+          gh release upload v0.13 dist/0.13/TravelWeather-0.13.apk dist/0.13/SHA256SUMS --clobber
+          gh release edit v0.13 --draft=false --latest --title '旅人天气 · Travel Weather 0.13' --notes-file docs/RELEASE-0.13.md

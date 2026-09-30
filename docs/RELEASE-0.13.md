@@ -1,6 +1,6 @@
 # 旅人天气 · Travel Weather 0.13
 
-状态：本地开发，尚未发布。
+发布日期：2026-10-01。
 
 ## 界面改进
 
@@ -10,12 +10,18 @@
 
 窗口文字全部居中，内容五行：
 
-旅人天气·Travel Weather  
-Version：0.13  
-作者：liu-gongjie  
-天气数据：Open-Meteo  
+```text
+旅人天气·Travel Weather
+Version：0.13
+作者：liu-gongjie
+天气数据：Open-Meteo
 城市数据：和风天气/GeoNames
+```
 
 ## 版本
 
 versionName `0.13`，versionCode `19`，沿用正式发布签名。天气更新时间仍显示在添加城市按钮下方。
+
+## 下载与验证
+
+Release 附件包含 `TravelWeather-0.13.apk` 和 `SHA256SUMS`。已在 Android Studio 模拟器和华为手机安装测试，并验证关于弹窗布局、主题和关闭操作。0.12 发布标签及 Git 备份保留。
