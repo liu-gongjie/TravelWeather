@@ -301,6 +301,6 @@ node tests/touch-sort.cjs
 
 原机运行 `GEOCODER_PROXY_URL=https://43.134.98.67/v1/reverse-geocode python3 scripts/build_release.py`，从钥匙串获取口令并仅通过子进程环境传递，输出 `TravelWeather-release.apk`。其他机器须安全恢复密钥及口令，或为自己的独立分发显式选择签名配置。钥匙串与密钥库都需独立妥善备份。
 
-0.12 安全重签包 versionCode 为 18，与此前 versionCode 17 的测试签名包不同。旧签名无法直接覆盖升级，不提供旧签名兼容的轮换链；发布时须明确这是签名身份切换。GitHub v0.12 标签及 Release 附件同步至本次安全重签版；先前发布提交保留为 `backup/v0.12-before-release-signing-20261001`。
+0.12 安全重签包 versionCode 为 18，与此前 versionCode 17 的测试签名包不同。旧签名无法直接覆盖升级，不提供旧签名兼容的轮换链；发布时须明确这是签名身份切换。GitHub v0.12 标签及 Release 附件同步至本次安全重签版。
 
 正式签名证书 SHA256：`e703655874660244be519401859142db58bbf72cfffe2de4276b5c000a37d59d`。旧私钥已转为强口令加密归档，默认弱口令副本已移除。加密密钥库另备份到仓库外 `../backups/signing-20261001/`；此备份仍位于同一台电脑，不替代独立离线备份。

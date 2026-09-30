@@ -30,7 +30,7 @@ python3 -m http.server 8765 --directory web
 python3 build_android.py
 ```
 
-构建前必须显式提供签名密钥路径、别名及口令环境变量；未配置或密钥缺失时直接报错。具体构建参数、测试环境和签名限制见设计开发文档。当前安全重签 APK 使用正式发布签名（versionCode 18），与此前的测试签名包不同；旧测试包需先卸载（会清除应用数据）。原机构建可使用 `scripts/build_release.py` 从 macOS 钥匙串读取口令，签名密钥不会提交到仓库。
+构建前必须显式提供签名密钥路径、别名及口令环境变量；未配置或密钥缺失时直接报错。具体构建参数、测试环境和签名限制见设计开发文档。当前安全重签 APK 使用正式发布签名（versionCode 18）。原机构建可使用 `scripts/build_release.py` 从 macOS 钥匙串读取口令，签名密钥不会提交到仓库。
 
 ## 数据来源
 
