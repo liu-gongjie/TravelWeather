@@ -13,3 +13,5 @@ preview-*.png
 amap-key.txt
 *.env
 *.pem
+
+!dist/0.12/TravelWeather-0.12.apk

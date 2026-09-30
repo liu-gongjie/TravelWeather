@@ -1,6 +1,6 @@
-# 旅人天气 0.12 Release 说明（待发布）
+# 旅人天气 0.12 Release 说明
 
-更新日期：2026-10-01。以下描述当前 0.12 测试版相对 0.11 的功能与修复。
+更新日期：2026-10-01。以下描述0.12 版相对 0.11 的功能与修复。
 
 ## 功能更新
 
@@ -29,4 +29,9 @@
 
 ## 版本与兼容性
 
-versionName `0.12`、versionCode `17`，沿用已有签名，可覆盖升级并保留本地城市、主题及缓存。原 `v0.11` 发布标签和备份保留；0.12 在 `develop/0.12` 分支维护。本说明已准备，正式 GitHub Release 尚未发布。
+versionName `0.12`、versionCode `17`，沿用已有签名，可覆盖升级并保留本地城市、主题及缓存。原 `v0.11` 发布标签和备份保留；0.12 在 `develop/0.12` 分支维护。发布标签为 `v0.12`，Release 提供 `TravelWeather-0.12.apk` 及 `SHA256SUMS`；普通发布包不含临时诊断功能。
+
+## 下载
+
+- [GitHub Release 与 APK](https://github.com/liu-gongjie/TravelWeather/releases/tag/v0.12)
+- 安装文件：`TravelWeather-0.12.apk`。`SHA256SUMS` 用于校验下载文件的完整性。

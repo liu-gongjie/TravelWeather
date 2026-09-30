@@ -2,7 +2,7 @@
 
 | 项目 | 内容 |
 | --- | --- |
-| 文档对应版本 | 0.12（待发布） |
+| 文档对应版本 | 0.12 |
 | 更新日期 | 2026-10-01 |
 | 作者 | Leo Gorge（liu-gongjie） |
 | 主要贡献者 | Codex（AI 协作开发） |
@@ -97,8 +97,9 @@ flowchart TD
 | `build_android.py` | 本地 SDK 工具链打包与签名 |
 | `scripts/import_cities.py` | 从上游 CSV 生成索引和来源说明 |
 | `tests/` | 天气规则与浏览器交互回归 |
-| `dist/` | 首次发布 APK 与 SHA256 校验文件 |
-| `.github/workflows/release.yml` | v0.1 标签发布，校验既有 APK 并创建 Release，不包含签名密钥 |
+| `dist/` | 0.1 与 0.12 发布 APK、SHA256 校验文件 |
+| `.github/workflows/release.yml` | 保留 v0.1 的发布流水线 |
+| `.github/workflows/release-0.12.yml` | v0.12 标签发布，验证既有 APK 校验值并创建 Release，上传 APK 和 SHA256SUMS；不包含签名密钥 |
 
 ## 4. Android 与网页边界
 

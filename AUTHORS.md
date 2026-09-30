@@ -6,4 +6,4 @@
 
 - **Codex** — AI 协作开发，代码实现、测试与技术文档整理。
 
-旅人天气 · Travel Weather 0.1
+旅人天气 · Travel Weather 0.12
