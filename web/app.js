@@ -51,7 +51,7 @@ function renderUpdateTime(){
   const times=visible.map(c=>(states.get(c.id)?.data||cache[c.id])?.updated).filter(t=>Number.isFinite(t)&&t>0);
   const latest=times.length?Math.max(...times):0;
   const partial=visible.some(c=>states.get(c.id)?.error);
-  $('lastUpdated').textContent=latest?`最新更新时间：${new Date(latest).toLocaleString('zh-CN',{hour12:false})}${partial?'（部分城市更新失败）':''}`:'最新更新时间：暂无';
+  $('lastUpdated').textContent=latest?`天气更新时间：${new Date(latest).toLocaleString('zh-CN',{hour12:false})}${partial?'（部分城市更新失败）':''}`:'天气更新时间：暂无';
 }
 function render(){ renderUpdateTime();if(sorter.isBusy())return; $('cards').replaceChildren(...(located?[renderCard(located,0,false)]:[]),...cities.map((c,i)=>renderCard(c,i)));$('add').disabled=cities.length>=10; }
 const weatherRequests=new Map();
