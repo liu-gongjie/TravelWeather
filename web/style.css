@@ -7,5 +7,5 @@
 .last-updated{text-align:center;font-size:12px;color:#8992a3;margin:12px 0 0;line-height:1.6}.location-hint{max-width:90%;font-size:12px;line-height:1.5;text-align:center;color:#8992a3}
 
 /* Keep the button visible while its arrow turns for the whole refresh cycle. */
-#refresh.refreshing{opacity:1;cursor:progress}#refresh{display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}.refresh-arrow{display:block;width:24px;height:24px;transform-box:view-box;transform-origin:50% 50%}#refresh.refreshing .refresh-arrow{animation:refresh-spin 1.7s linear infinite}@keyframes refresh-spin{to{transform:rotate(360deg)}}
+#refresh.refreshing{opacity:1;cursor:progress}#refresh{display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0}.refresh-arrow{display:block;width:24px;height:24px;opacity:.78;transform-box:view-box;transform-origin:50% 50%}#refresh.refreshing .refresh-arrow{animation:refresh-spin 1.7s linear infinite}@keyframes refresh-spin{to{transform:rotate(360deg)}}
 html{overscroll-behavior-y:contain}.pull-refresh{height:0;overflow:hidden;text-align:center;color:#5c7cfa;font-size:13px;display:flex;align-items:center;justify-content:center;transition:height .18s ease}.pull-refresh.pulling{transition:none}
