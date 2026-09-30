@@ -123,9 +123,13 @@ async function locate({cachedWeatherPromise=null,fresh=false}={}){
     const unchanged=located?.regionKey===regionKey;
     locationProblem=addressFailed;
     locationHint=addressFailed?'已获取坐标，城市名称解析失败，可重试':pos.coords.approximate?'当前为大致位置，区县边界附近可开启精确位置后重试':'';
-    if(unchanged){
-      // Reuse district identity/coordinates, but refresh weather on every entry and manual refresh.
-      await (cachedWeatherPromise || load(located));
+    if(unchanged && !addressFailed){
+      // A successful address lookup confirms the new anchor, even within the same district.
+      located={...located,name:address.name,lat,lon};
+      write(LOCATION_KEY,located);
+      // Finish the old-coordinate request before loading weather at the confirmed new coordinates.
+      await cachedWeatherPromise;
+      await load(located);
       renderLocation();
       return;
     }

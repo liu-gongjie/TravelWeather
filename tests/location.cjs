@@ -1,8 +1,8 @@
 const {chromium}=require(process.env.PLAYWRIGHT_PATH||'/opt/homebrew/lib/node_modules/@playwright/cli/node_modules/playwright');const assert=require('node:assert/strict');
 (async()=>{const b=await chromium.launch({channel:'chrome',headless:true});try{
-const p=await b.newPage({geolocation:{latitude:28,longitude:112},permissions:['geolocation']});let weatherCalls=0,region='A',fail=false,hold=false,release,temperature=24;
+const p=await b.newPage({geolocation:{latitude:28,longitude:112},permissions:['geolocation']});let weatherCalls=0,addressCalls=0,region='A',fail=false,hold=false,release,temperature=24;
 await p.route('https://api.open-meteo.com/**',r=>{weatherCalls++;const url=new URL(r.request().url());assert(url.searchParams.get('current').includes('temperature_2m'));assert(url.searchParams.get('daily').includes('temperature_2m_max'));return r.fulfill({json:{current:{time:'2026-09-28T12:00',temperature_2m:temperature,weather_code:3},daily:{time:['2026-09-28'],weather_code:[3],temperature_2m_max:[temperature+3],temperature_2m_min:[18]}}})});
-await p.route('**/reverse-geocode?*',async r=>{if(hold)await new Promise(resolve=>release=resolve);await r.fulfill({status:fail?503:200,json:{name:region==='A'?'岳麓区':'芙蓉区',key:region}})});
+await p.route('**/reverse-geocode?*',async r=>{addressCalls++;if(hold)await new Promise(resolve=>release=resolve);await r.fulfill({status:fail?503:200,json:{name:region==='A'?'岳麓区':'芙蓉区',key:region}})});
 const waitReady=()=>p.waitForFunction(()=>!document.querySelector('#refresh').disabled);
 await p.goto((process.env.TEST_BASE_URL||'http://127.0.0.1:8765'));await waitReady();assert.equal(await p.locator('#location > p').textContent(),'⌖ 岳麓区');assert.equal(weatherCalls,2);
 const saved=await p.evaluate(()=>localStorage.getItem('travelweather-last-location'));
@@ -11,5 +11,10 @@ temperature=26;await p.locator('#refresh').click();await waitReady();assert.equa
 temperature=27;await p.evaluate(()=>{window.dispatchEvent(new Event('travelweather-resume'));Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));Object.defineProperty(document,'hidden',{configurable:true,value:false});document.dispatchEvent(new Event('visibilitychange'));});await p.waitForTimeout(1700);assert.equal(weatherCalls,6);assert((await p.locator('#location').innerText()).includes('26°'));
 await p.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){ok({coords:{latitude:29,longitude:112}})}}}));region='B';await p.locator('#refresh').click();await waitReady();assert.equal(await p.locator('#location > p').textContent(),'⌖ 芙蓉区');assert.equal(weatherCalls,9);
 fail=true;temperature=28;await p.locator('#refresh').click();await waitReady();assert.equal(weatherCalls,11);assert.equal(await p.locator('#location > p').textContent(),'⌖ 芙蓉区');assert((await p.locator('#location').innerText()).includes('28°'));assert.equal(await p.locator('#location button').count(),0);assert(!(await p.locator('#location').innerText()).includes('沿用上次'));
-console.log('PASS: instant cached location; launch/manual refresh requests current+forecast for all cities; resume/visibility changes do not refresh; same district preserved; changed district switched; geocoder failure still refreshes weather');
+fail=false;const previousAddressCalls=addressCalls;
+await p.evaluate(()=>Object.defineProperty(navigator,'geolocation',{configurable:true,value:{getCurrentPosition(ok){ok({coords:{latitude:29.08,longitude:112}})}}}));
+await p.locator('#refresh').click();await waitReady();assert.equal(addressCalls,previousAddressCalls+1);assert.equal(weatherCalls,14);
+const newAnchor=await p.evaluate(()=>JSON.parse(localStorage.getItem('travelweather-last-location')));assert.equal(newAnchor.lat,29.08);assert.equal(newAnchor.regionKey,'B');
+await p.locator('#refresh').click();await waitReady();assert.equal(addressCalls,previousAddressCalls+1);assert.equal(weatherCalls,16);
+console.log('PASS: instant cached location; launch/manual refresh requests current+forecast for all cities; resume/visibility changes do not refresh; same district preserved; confirmed same-district movement saves new anchor and avoids repeated address lookup; changed district switched; geocoder failure still refreshes weather');
 }finally{await b.close()}})().catch(e=>{console.error(e);process.exit(1)});
