@@ -23,7 +23,7 @@ final class NativeLocation implements LocationListener {
     private final boolean fresh;
     private Location best;
     private volatile String result;
-    private boolean finished;
+    private boolean finished, started;
     private final Runnable poll = new Runnable() { @Override public void run() {
         if (finished) return;
         for (String provider : new String[]{"fused", LocationManager.NETWORK_PROVIDER, LocationManager.GPS_PROVIDER}) {
@@ -50,7 +50,8 @@ final class NativeLocation implements LocationListener {
             || activity.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
     void start() {
-        if (finished) return;
+        if (finished || started) return;
+        started=true;
         if (!hasPermission()) { fail("permission", "请在应用权限中允许使用位置信息"); return; }
         if (manager == null) { fail("unavailable", "设备定位服务暂不可用"); return; }
         // Read recent fixes first, without activating a satellite request.

@@ -11,6 +11,7 @@ import java.io.IOException;
 /** Minimal, source-owned Android shell; serves bundled assets on a secure origin. */
 public class MainActivity extends Activity {
     private WebView web;
+    private boolean resumed;
     private volatile NativeLocation nativeLocation;
     private GeolocationPermissions.Callback locationCallback;
     private String locationOrigin;
@@ -67,7 +68,7 @@ public class MainActivity extends Activity {
         nativeLocation = request;
         runOnUiThread(new Runnable() { @Override public void run() {
             if (isFinishing() || isDestroyed()) { request.fail("cancelled", "定位已取消"); return; }
-            if (request.hasPermission()) request.start();
+            if (request.hasPermission()) { if (resumed && web.hasWindowFocus()) request.start(); }
             else requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 101);
         }});
         String result = request.await();
@@ -90,13 +91,26 @@ public class MainActivity extends Activity {
     }
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
         super.onRequestPermissionsResult(request,permissions,results);
-        if(request==101 && nativeLocation!=null) nativeLocation.start();
+        if(request==101 && nativeLocation!=null) {
+            if(!nativeLocation.hasPermission()) nativeLocation.fail("permission", "请在应用权限中允许使用位置信息");
+            else if(resumed && web.hasWindowFocus()) nativeLocation.start();
+        }
         if(request==100 && locationCallback!=null){locationCallback.invoke(locationOrigin,checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED,false);locationCallback=null;}
     }
     @Override public void onBackPressed(){web.evaluateJavascript("(function(){var d=document.querySelector('dialog[open]');if(d){d.close();return true;}return false;})()",new ValueCallback<String>() { @Override public void onReceiveValue(String result){ if(!"true".equals(result))finish(); } });}
     @Override protected void onResume(){
         super.onResume();
+        resumed=true;
+        if(nativeLocation!=null && nativeLocation.hasPermission() && web.hasWindowFocus()) nativeLocation.start();
         if(web!=null)web.evaluateJavascript("window.dispatchEvent(new Event('travelweather-resume'));",null);
+    }
+    @Override public void onWindowFocusChanged(boolean hasFocus){
+        super.onWindowFocusChanged(hasFocus);
+        if(hasFocus && resumed && nativeLocation!=null && nativeLocation.hasPermission()) nativeLocation.start();
+    }
+    @Override protected void onPause(){
+        resumed=false;
+        super.onPause();
     }
     @Override protected void onStop(){
         super.onStop();

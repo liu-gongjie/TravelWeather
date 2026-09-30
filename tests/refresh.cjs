@@ -22,6 +22,14 @@ const fs=require('node:fs/promises'), path=require('node:path');
   assert.equal(await page.locator('#refresh').getAttribute('aria-busy'),'true');
   assert.equal(await page.locator('.refresh-arrow').evaluate(e=>getComputedStyle(e).animationName),'refresh-spin');
   assert.equal(await page.locator('#refresh').evaluate(e=>getComputedStyle(e).opacity),'1');
+  for(let i=0;i<4;i++){
+   const center=await page.locator('#refresh').evaluate(e=>{
+    const b=e.getBoundingClientRect(),s=e.querySelector('svg').getBoundingClientRect();
+    return {dx:(s.left+s.width/2)-(b.left+b.width/2),dy:(s.top+s.height/2)-(b.top+b.height/2)};
+   });
+   assert(Math.abs(center.dx)<.1 && Math.abs(center.dy)<.1,'Rotating SVG must share the button center');
+   await page.waitForTimeout(160);
+  }
   await page.waitForFunction(()=>document.querySelector('.card'));while(!release)await page.waitForTimeout(10);
   hold=false;release();await ready();assert.equal(await page.locator('#refresh').getAttribute('aria-busy'),'false');
   const cdp=await page.context().newCDPSession(page);
