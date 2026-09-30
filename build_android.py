@@ -43,7 +43,7 @@ run(bt/'d8','--lib',platform,'--min-api','23','--output',build/'dex',*list((buil
 with zipfile.ZipFile(build/'unsigned.apk','a',zipfile.ZIP_DEFLATED) as z:
  for f in (build/'dex').glob('*.dex'):z.write(f,f.name)
 run(bt/'zipalign','-f','4',build/'unsigned.apk',build/'aligned.apk')
-output=root/'TravelWeather-debug.apk'
+output=Path(os.environ.get('ANDROID_APK_OUTPUT', str(root/'TravelWeather.apk'))).expanduser()
 # Environment references keep password values out of command arguments and error messages.
 run(bt/'apksigner','sign','--ks',key,'--ks-key-alias',alias,
     '--ks-pass','env:ANDROID_STORE_PASSWORD','--key-pass','env:ANDROID_KEY_PASSWORD',

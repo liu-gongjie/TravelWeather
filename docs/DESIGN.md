@@ -8,7 +8,7 @@
 | 主要贡献者 | Codex（AI 协作开发） |
 | 平台 | Android，最低 API 23，目标 API 35 |
 | 包名 | `com.travelweather.app` |
-| APK 版本 | versionName `0.12`，versionCode `17` |
+| APK 版本 | versionName `0.12`，versionCode `18` |
 | 技术栈 | Java WebView + HTML / CSS / 原生 JavaScript ES Modules |
 
 本文只描述当前版本的设计、实现与维护方式，不记录逐次调试过程或开发工具账号配置。
@@ -217,9 +217,9 @@ flowchart TD
 python3 build_android.py
 ```
 
-流水线：复制 web 资源 → aapt 打包 → javac 编译 Java 8 字节码 → d8 生成 DEX → zipalign → apksigner 签名并校验。产物为 `TravelWeather-debug.apk`，中间文件与测试签名在 `build/` 中。
+流水线：复制 web 资源 → aapt 打包 → javac 编译 Java 8 字节码 → d8 生成 DEX → zipalign → apksigner 签名并校验。产物默认是 `TravelWeather.apk`，可用 `ANDROID_APK_OUTPUT` 指定输出文件，中间文件与测试签名在 `build/` 中。
 
-0.12 测试包沿用已有本地测试签名；versionCode 递增到 17，versionName 为 0.12。签名密钥不进入源码仓库。构建必须显式提供签名配置；配置或密钥缺失时立即报错，不自动生成替代密钥。使用不同私钥构建的 APK，通常不能覆盖安装已有版本；更换文件口令但保留原私钥及证书不会改变应用签名身份。后续升级必须保留同一签名；当前签名仍为本地测试签名。
+0.12 本地安全重签包使用新生成的正式发布签名；versionCode 递增到 18，versionName 为 0.12。签名密钥不进入源码仓库。构建必须显式提供签名配置；配置或密钥缺失时立即报错，不自动生成替代密钥。使用不同私钥构建的 APK，通常不能覆盖安装已有版本；更换文件口令但保留原私钥及证书不会改变应用签名身份。后续正式升级必须保留本次发布签名；新的 0.12 本地重签包与此前测试签名不同。
 
 签名配置通过环境变量提供：`ANDROID_KEYSTORE`（密钥库路径）、`ANDROID_KEY_ALIAS`（别名）、`ANDROID_STORE_PASSWORD`（密钥库口令）及可选的 `ANDROID_KEY_PASSWORD`（未提供时沿用密钥库口令）。`apksigner` 使用 `env:` 引用，不把实际口令放入命令行参数或源码。应通过本地密码管理工具或临时隐藏输入提供口令；避免写入公开脚本、终端历史、构建日志或 Git。
 
@@ -294,3 +294,13 @@ node tests/touch-sort.cjs
 ### 前台定位请求启动
 
 原生坐标请求等待 Activity resumed 且 WebView 窗口有焦点再启动系统监听，避免后台限流阶段消耗 45 秒定位窗口。权限授权后通过窗口恢复启动；拒绝则及时结束。NativeLocation 对启动去重，离开前台仍清理监听。已有超过 5 分钟的系统坐标不能被当作新位置；本地保存的区县仍用于先展示并刷新其天气，失败提示保留。
+
+### 正式签名与本地重打包
+
+新的正式私钥为 RSA 3072，证书主体为 `CN=Leo Gorge, O=TravelWeather`。密钥库在源码仓库外的 `../signing/TravelWeather-release.p12`，目录权限 700、文件权限 600；随机口令保存在 macOS 钥匙串项目 `TravelWeather.release.signing.v1`，账号 `travelweather`。不把私钥或口令上传 GitHub。
+
+原机运行 `GEOCODER_PROXY_URL=https://43.134.98.67/v1/reverse-geocode python3 scripts/build_release.py`，从钥匙串获取口令并仅通过子进程环境传递，输出 `TravelWeather-release.apk`。其他机器须安全恢复密钥及口令，或为自己的独立分发显式选择签名配置。钥匙串与密钥库都需独立妥善备份。
+
+本地 0.12 安全重签包 versionCode 为 18，与此前 versionCode 17 的测试签名包不同。旧签名无法直接覆盖升级，不提供旧签名兼容的轮换链；发布时须明确这是签名身份切换。当前 GitHub 已发布包不会自动被本地重打包替换。
+
+正式签名证书 SHA256：`e703655874660244be519401859142db58bbf72cfffe2de4276b5c000a37d59d`。旧私钥已转为强口令加密归档，默认弱口令副本已移除。加密密钥库另备份到仓库外 `../backups/signing-20261001/`；此备份仍位于同一台电脑，不替代独立离线备份。

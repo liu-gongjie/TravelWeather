@@ -29,9 +29,13 @@
 
 ## 版本与兼容性
 
-versionName `0.12`、versionCode `17`，沿用已有签名，可覆盖升级并保留本地城市、主题及缓存。原 `v0.11` 发布标签和备份保留；0.12 在 `develop/0.12` 分支维护。发布标签为 `v0.12`，Release 提供 `TravelWeather-0.12.apk` 及 `SHA256SUMS`；普通发布包不含临时诊断功能。
+versionName `0.12`、versionCode `18`，使用新的正式发布签名；此前旧签名测试版本需要先卸载再安装，后续新签名版本可覆盖升级。原 `v0.11` 发布标签和备份保留；0.12 在 `develop/0.12` 分支维护。发布标签为 `v0.12`，Release 提供 `TravelWeather-0.12.apk` 及 `SHA256SUMS`；普通发布包不含临时诊断功能。
 
 ## 下载
 
 - [GitHub Release 与 APK](https://github.com/liu-gongjie/TravelWeather/releases/tag/v0.12)
 - 安装文件：`TravelWeather-0.12.apk`。`SHA256SUMS` 用于校验下载文件的完整性。
+
+## 本地安全重签更新（尚未替换 GitHub 附件）
+
+采用新的正式发布私钥和强随机口令，versionCode 为 18。签名口令由 macOS 钥匙串保存，构建脚本不再硬编码口令或自动生成替代密钥。此前旧签名测试包需先卸载；后续使用此正式签名的升级可覆盖安装。
