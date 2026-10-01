@@ -43,11 +43,10 @@ final class NativeLocation implements LocationListener {
         }
         handler.postDelayed(this, 2000L);
     } };
-    private final Runnable satelliteFallback = new Runnable() { @Override public void run() {
+    private final Runnable enhanceFusion = new Runnable() { @Override public void run() {
         if (!finished) {
             // Escalate the fused provider too: network/GNSS selection remains the system's job.
             requestProvider("fused", true);
-            requestProvider(LocationManager.GPS_PROVIDER, true);
         }
     } };
     private final Runnable timeout = new Runnable() { @Override public void run() { completeBest(); } };
@@ -79,11 +78,14 @@ final class NativeLocation implements LocationListener {
         int active = 0;
         if (requestProvider("fused", false)) active++;
         if (requestProvider(LocationManager.NETWORK_PROVIDER, false)) active++;
+        // Start GNSS alongside network/fused; do not spend the first seconds waiting
+        // for a network provider that may be unavailable on this device.
+        if (requestProvider(LocationManager.GPS_PROVIDER, true)) active++;
         if (active == 0) {
-            if (!requestProvider(LocationManager.GPS_PROVIDER, true)) {
-                fail("unavailable", "系统定位暂不可用，请检查定位开关与应用权限"); return;
-            }
-        } else handler.postDelayed(satelliteFallback, 8000L);
+            fail("unavailable", "系统定位暂不可用，请检查定位开关与应用权限"); return;
+        }
+        // Keep all registered sources alive: any acceptable fix ends the request.
+        handler.postDelayed(enhanceFusion, 5000L);
         handler.postDelayed(timeout, 45000L);
         handler.postDelayed(poll, 2000L);
     }
@@ -179,7 +181,7 @@ final class NativeLocation implements LocationListener {
         finished = true;
         handler.removeCallbacks(timeout);
         handler.removeCallbacks(poll);
-        handler.removeCallbacks(satelliteFallback);
+        handler.removeCallbacks(enhanceFusion);
         for (CancellationSignal cancellation : currentRequests) cancellation.cancel();
         currentRequests.clear();
         if (manager != null) try { manager.removeUpdates(this); } catch (SecurityException ignored) { }
